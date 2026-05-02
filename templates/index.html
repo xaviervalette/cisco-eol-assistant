@@ -1,0 +1,2080 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>End Of Life Assistant</title>
+<style>
+  @import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&family=Roboto+Mono:wght@400&display=swap");
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --blue:    #0A60FF;
+    --blue-h:  #1869FF;
+    --cyan:    #02C8FF;
+    --text:    #FFFFFF;
+    --sec:     rgba(255,255,255,0.70);
+    --ter:     rgba(255,255,255,0.38);
+    --border:  rgba(255,255,255,0.10);
+    --border2: rgba(255,255,255,0.18);
+    --glass:   rgba(255,255,255,0.06);
+    --sans:    "Inter", system-ui, sans-serif;
+    --display: "Manrope", "Inter", sans-serif;
+    --mono:    "Roboto Mono", ui-monospace, monospace;
+  }
+
+  html { min-height: 100%; }
+  body {
+    background: linear-gradient(160deg, #07182D 0%, #020810 100%) fixed;
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Aurora glow */
+  .aurora-bg {
+    position: fixed; top: -15%; right: -8%;
+    width: 75vw; max-width: 1000px; height: 80vh;
+    background: radial-gradient(ellipse at 60% 40%,
+      rgba(2,200,255,0.22) 0%,
+      rgba(10,96,255,0.18) 35%,
+      rgba(255,0,127,0.14) 65%,
+      transparent 80%);
+    filter: blur(90px);
+    pointer-events: none; z-index: 0;
+  }
+
+  /* ── Topbar ──────────────────────────────────────────────────────────── */
+  .topbar {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(3,10,22,0.75);
+    backdrop-filter: blur(28px); -webkit-backdrop-filter: blur(28px);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; padding: 0 24px; height: 52px; gap: 8px;
+  }
+  .topbar-logo { display: flex; align-items: center; gap: 9px; }
+  .cisco-bars  { display: flex; align-items: flex-end; gap: 3px; height: 18px; }
+  .cisco-bars span { display: block; width: 4px; background: var(--cyan); border-radius: 2px; }
+  .topbar-title {
+    font-family: var(--display); font-size: 15px; font-weight: 700;
+    letter-spacing: -0.02em; color: #fff;
+  }
+  .topbar-powered {
+    font-size: 10px; font-weight: 500; color: var(--ter);
+    letter-spacing: 0.04em; white-space: nowrap;
+  }
+  .topbar-sep { flex: 1; }
+  .topbar-btn {
+    display: flex; align-items: center; gap: 6px;
+    padding: 6px 13px; border-radius: 20px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid var(--border);
+    color: var(--sec); font-family: var(--sans);
+    font-size: 12px; font-weight: 500; cursor: pointer;
+    transition: background 0.18s, border-color 0.18s, color 0.18s;
+    white-space: nowrap;
+  }
+  .topbar-btn:hover { background: rgba(255,255,255,0.11); border-color: var(--border2); color: #fff; }
+  .topbar-btn svg { flex-shrink: 0; opacity: 0.75; }
+  .topbar-badge-pill {
+    font-size: 10px; font-weight: 700; min-width: 16px; height: 16px;
+    background: rgba(2,200,255,0.22); color: var(--cyan);
+    border-radius: 8px; padding: 0 5px;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+
+  /* ── Page layout ─────────────────────────────────────────────────────── */
+  .page {
+    position: relative; z-index: 1;
+    min-height: calc(100vh - 52px);
+    display: flex; flex-direction: column; align-items: center;
+    padding: 40px 20px 60px;
+    gap: 12px;
+  }
+
+  /* ── Glass card base ─────────────────────────────────────────────────── */
+  .glass-card {
+    width: 100%; max-width: 680px;
+    background: linear-gradient(160deg,
+      rgba(255,255,255,0.08) 0%,
+      rgba(255,255,255,0.04) 50%,
+      rgba(255,255,255,0.02) 100%);
+    backdrop-filter: blur(56px); -webkit-backdrop-filter: blur(56px);
+    border: 1px solid rgba(255,255,255,0.13);
+    border-radius: 18px;
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.12),
+      0 24px 64px rgba(0,0,0,0.40);
+    position: relative;
+  }
+  .glass-card::before {
+    content: "";
+    position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+    background: linear-gradient(180deg,
+      rgba(255,255,255,0.09) 0%,
+      rgba(255,255,255,0.00) 28%);
+    z-index: 0;
+  }
+  .glass-card > * { position: relative; z-index: 1; }
+
+  /* ── Credentials card ────────────────────────────────────────────────── */
+  .creds-card {
+    width: 100%; max-width: 680px;
+    background: rgba(255,255,255,0.04);
+    backdrop-filter: blur(40px); -webkit-backdrop-filter: blur(40px);
+    border: 1px solid rgba(255,255,255,0.09);
+    border-radius: 14px;
+    overflow: hidden;
+  }
+  .creds-toggle {
+    width: 100%; display: flex; align-items: center; gap: 10px;
+    padding: 11px 16px; background: none; border: none; cursor: pointer;
+    color: var(--sec); font-family: var(--sans); font-size: 12px; font-weight: 500;
+    text-align: left;
+    transition: background 0.18s;
+  }
+  .creds-toggle:hover { background: rgba(255,255,255,0.04); }
+  .creds-toggle-label { font-size: 11px; font-weight: 700; color: var(--ter); text-transform: uppercase; letter-spacing: 0.08em; }
+  .creds-summary { font-size: 12px; color: var(--ter); font-family: var(--mono); flex: 1; }
+  .creds-chevron {
+    font-size: 10px; color: var(--ter); transition: transform 0.2s; flex-shrink: 0;
+  }
+  .creds-chevron.open { transform: rotate(90deg); }
+  .creds-body {
+    display: none; flex-direction: column; gap: 10px;
+    padding: 0 16px 14px;
+  }
+  .creds-body.open { display: flex; }
+  .creds-fields { display: flex; gap: 10px; }
+  .creds-fields .field { flex: 1; }
+  .creds-note {
+    font-size: 11px; color: var(--ter); line-height: 1.7;
+    padding-top: 8px; border-top: 1px solid var(--border);
+  }
+
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field label { font-size: 11px; font-weight: 600; color: var(--ter); text-transform: uppercase; letter-spacing: 0.06em; }
+
+  input[type=text], input[type=password] {
+    background: rgba(255,255,255,0.06); border: 1px solid var(--border);
+    border-radius: 9px; color: var(--text); font-family: var(--sans);
+    font-size: 13px; padding: 8px 11px; outline: none; width: 100%;
+    transition: border-color 0.18s, box-shadow 0.18s, background 0.18s;
+  }
+  input:focus {
+    border-color: var(--blue); background: rgba(255,255,255,0.08);
+    box-shadow: 0 0 0 3px rgba(10,96,255,0.22);
+  }
+  input::placeholder { color: var(--ter); }
+
+  /* ── Input card ──────────────────────────────────────────────────────── */
+  .input-card { overflow: hidden; }
+  .input-card-header { padding: 22px 24px 0; }
+  .input-card-title {
+    font-family: var(--display); font-size: 18px; font-weight: 800;
+    letter-spacing: -0.03em; color: #fff;
+  }
+  .input-card-subtitle { font-size: 13px; color: var(--sec); margin-top: 3px; }
+
+  /* ── Input zone ──────────────────────────────────────────────────────── */
+  .input-zone {
+    margin: 16px 24px 0;
+    border: 1.5px dashed rgba(255,255,255,0.16);
+    border-radius: 12px;
+    transition: border-color 0.18s, background 0.18s;
+    position: relative; overflow: hidden;
+  }
+  .input-zone.drag-over { border-color: var(--cyan); background: rgba(2,200,255,0.05); }
+  .input-zone.has-file  { border-style: solid; border-color: var(--border); background: rgba(255,255,255,0.03); }
+
+  .input-zone textarea {
+    display: block; width: 100%; min-height: 160px; background: transparent;
+    border: none; outline: none; resize: none;
+    font-family: var(--mono); font-size: 13px;
+    color: var(--text); padding: 14px 16px; line-height: 1.75;
+  }
+  .input-zone textarea::placeholder { color: var(--ter); }
+
+  .input-or {
+    display: flex; align-items: center; gap: 10px;
+    padding: 0 16px; color: var(--ter); font-size: 11px; letter-spacing: 0.04em;
+  }
+  .input-or::before, .input-or::after { content:''; flex:1; height:1px; background: rgba(255,255,255,0.08); }
+
+  .drop-hint {
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px 16px; cursor: pointer; transition: background 0.18s;
+  }
+  .drop-hint:hover { background: rgba(255,255,255,0.03); }
+  .drop-hint input[type=file] {
+    position: absolute; bottom: 0; left: 0; width: 100%; height: 68px; opacity: 0; cursor: pointer;
+  }
+  .drop-hint-icon {
+    width: 34px; height: 34px; background: rgba(255,255,255,0.07);
+    border: 1px solid var(--border); border-radius: 9px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px; flex-shrink: 0; color: var(--sec);
+  }
+  .drop-hint-text { font-size: 13px; color: var(--sec); }
+  .drop-hint-text span { color: var(--cyan); font-weight: 500; }
+  .drop-hint-sub { font-size: 11px; color: var(--ter); margin-top: 2px; }
+
+  .file-chip { display: none; align-items: center; gap: 10px; padding: 14px 16px; }
+  .file-chip.visible { display: flex; }
+  .file-chip-icon {
+    width: 34px; height: 34px; background: rgba(10,96,255,0.18);
+    border-radius: 9px; display: flex; align-items: center; justify-content: center;
+    font-size: 15px; flex-shrink: 0;
+  }
+  .file-chip-name { font-size: 13px; font-weight: 500; color: var(--text); flex: 1; }
+  .file-chip-size { font-size: 11px; color: var(--ter); margin-top: 1px; }
+  .file-chip-clear {
+    width: 20px; height: 20px; border-radius: 50%; background: rgba(255,255,255,0.08);
+    border: none; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    font-size: 12px; color: var(--sec); flex-shrink: 0;
+    transition: background 0.18s; padding: 0;
+  }
+  .file-chip-clear:hover { background: rgba(255,0,127,0.25); color: #fff; }
+
+  /* ── Action row ──────────────────────────────────────────────────────── */
+  .action-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 14px 24px 20px;
+  }
+  .sku-count { font-size: 12px; color: var(--ter); flex: 1; }
+  .sku-count b { color: var(--sec); font-weight: 600; }
+
+  .btn-columns {
+    display: flex; align-items: center; gap: 7px;
+    padding: 8px 13px; background: rgba(255,255,255,0.06);
+    border: 1px solid var(--border); border-radius: 10px;
+    color: var(--sec); font-family: var(--sans);
+    font-size: 12px; font-weight: 500; cursor: pointer;
+    transition: background 0.18s, border-color 0.18s, color 0.18s;
+    white-space: nowrap;
+  }
+  .btn-columns:hover { background: rgba(255,255,255,0.10); border-color: var(--border2); color: #fff; }
+  .btn-columns svg { opacity: 0.6; flex-shrink: 0; }
+  .btn-columns-name { max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .btn-columns-count {
+    font-size: 11px; font-weight: 700; color: var(--cyan);
+    background: rgba(2,200,255,0.14); border-radius: 8px;
+    padding: 1px 6px; flex-shrink: 0;
+  }
+
+  .btn-generate {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 22px; background: var(--blue); color: #fff;
+    font-family: var(--display); font-size: 14px; font-weight: 700;
+    border: none; border-radius: 10px; cursor: pointer;
+    letter-spacing: -0.01em; white-space: nowrap;
+    box-shadow: 0 4px 20px -6px rgba(10,96,255,0.70);
+    transition: background 0.18s, box-shadow 0.18s, transform 0.1s;
+  }
+  .btn-generate:hover  { background: var(--blue-h); box-shadow: 0 6px 24px -4px rgba(10,96,255,0.65); }
+  .btn-generate:active { transform: scale(0.98); }
+  .btn-generate:disabled {
+    background: rgba(255,255,255,0.07); color: var(--ter);
+    border: 1px solid var(--border); box-shadow: none; cursor: not-allowed;
+  }
+
+  /* ── Status / progress ───────────────────────────────────────────────── */
+  .status-area { width: 100%; max-width: 680px; display: flex; flex-direction: column; gap: 10px; }
+
+  @keyframes fadeIn { from { opacity:0; transform:translateY(5px); } to { opacity:1; transform:none; } }
+
+  .status-pill {
+    display: flex; align-items: center; gap: 10px; padding: 12px 16px;
+    border-radius: 12px; font-size: 13px; font-weight: 500;
+    animation: fadeIn 0.2s ease; backdrop-filter: blur(20px);
+  }
+  .status-pill.error   { background: rgba(255,0,127,0.10); border: 1px solid rgba(255,0,127,0.28); color: #ff8fbf; }
+  .status-pill.success { background: rgba(0,255,174,0.09); border: 1px solid rgba(0,255,174,0.28); color: #7fffc7; }
+
+  .progress-card {
+    background: linear-gradient(160deg, rgba(10,96,255,0.10) 0%, rgba(255,255,255,0.04) 100%);
+    backdrop-filter: blur(48px); -webkit-backdrop-filter: blur(48px);
+    border: 1px solid rgba(255,255,255,0.11);
+    border-radius: 14px; padding: 14px 18px;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
+    animation: fadeIn 0.2s ease;
+    display: none; flex-direction: column; gap: 10px;
+  }
+  .progress-card.visible { display: flex; }
+  .progress-top { display: flex; align-items: center; gap: 10px; }
+  .progress-msg { font-size: 13px; color: var(--sec); font-weight: 500; flex: 1; }
+  .progress-pct { font-size: 12px; font-weight: 700; color: var(--cyan); min-width: 34px; text-align: right; }
+  .progress-track { width: 100%; height: 4px; background: rgba(255,255,255,0.07); border-radius: 3px; overflow: hidden; }
+  .progress-fill {
+    height: 100%; border-radius: 3px; width: 0%;
+    background: linear-gradient(90deg, var(--blue), var(--cyan));
+    position: relative; overflow: hidden;
+    transition: width 0.35s cubic-bezier(0.4,0,0.2,1);
+  }
+  .progress-fill::after {
+    content: ""; position: absolute; inset: 0;
+    background: linear-gradient(90deg, transparent 30%, rgba(255,255,255,0.38) 50%, transparent 70%);
+    animation: sheen 2.4s cubic-bezier(0.65,0,0.35,1) infinite;
+  }
+  @keyframes sheen { 0% { transform: translateX(-120%) skewX(-18deg); } 100% { transform: translateX(220%) skewX(-18deg); } }
+
+  .steps-row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .step-chip {
+    font-size: 11px; padding: 2px 9px; border-radius: 10px;
+    background: rgba(255,255,255,0.05); color: var(--ter); border: 1px solid var(--border);
+    transition: background 0.2s, color 0.2s, border-color 0.2s;
+  }
+  .step-chip.done   { background: rgba(0,255,174,0.11);  color: #7fffc7; border-color: rgba(0,255,174,0.24); }
+  .step-chip.warn   { background: rgba(255,144,0,0.11);  color: #ffc674; border-color: rgba(255,144,0,0.24); }
+  .step-chip.active { background: rgba(10,96,255,0.16);  color: #9cb6ff; border-color: rgba(10,96,255,0.32); }
+
+  .spinner {
+    width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.12);
+    border-top-color: var(--cyan); border-radius: 50%;
+    animation: spin 0.6s linear infinite; flex-shrink: 0;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Modals shared ───────────────────────────────────────────────────── */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.60);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 1000; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    animation: fadeIn 0.15s ease;
+  }
+  .modal-card, .hist-modal-card, .insp-modal-card {
+    background: linear-gradient(160deg, rgba(10,96,255,0.12) 0%, rgba(5,16,34,0.92) 55%);
+    backdrop-filter: blur(72px); -webkit-backdrop-filter: blur(72px);
+    border: 1px solid rgba(255,255,255,0.13);
+    border-radius: 20px;
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.10),
+      0 32px 96px rgba(0,0,0,0.70);
+    display: flex; flex-direction: column; overflow: hidden; max-height: 88vh;
+  }
+  .modal-card      { width: min(860px, 96vw); }
+  .hist-modal-card { width: min(740px, 96vw); }
+  .insp-modal-card { width: min(620px, 96vw); }
+
+  .modal-header {
+    display: flex; align-items: center; padding: 18px 24px 14px;
+    border-bottom: 1px solid var(--border); flex-shrink: 0; gap: 12px;
+  }
+  .modal-title {
+    font-family: var(--display); font-size: 15px; font-weight: 700;
+    letter-spacing: -0.02em; flex: 1; color: #fff;
+  }
+  .modal-close {
+    width: 26px; height: 26px; border-radius: 50%; border: none;
+    background: rgba(255,255,255,0.08); color: var(--sec);
+    cursor: pointer; font-size: 12px;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.18s;
+  }
+  .modal-close:hover { background: rgba(255,255,255,0.18); color: #fff; }
+
+  .modal-preset-bar {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 24px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+  }
+  .modal-preset-label { font-size: 12px; color: var(--sec); white-space: nowrap; }
+  .modal-preset-bar select {
+    flex: 1; background: rgba(255,255,255,0.07); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text); font-family: var(--sans);
+    font-size: 13px; padding: 7px 10px; outline: none; cursor: pointer;
+    transition: border-color 0.18s; -webkit-appearance: none; appearance: none;
+  }
+  .modal-preset-bar select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(10,96,255,0.22); }
+  .modal-preset-bar select option { background: #07182D; color: #fff; }
+
+  .btn-sm {
+    padding: 6px 13px; border-radius: 7px; font-family: var(--sans);
+    font-size: 12px; font-weight: 500; cursor: pointer;
+    border: 1px solid var(--border); transition: background 0.18s, color 0.18s; white-space: nowrap;
+  }
+  .btn-sm-primary { background: var(--blue); color: white; border-color: var(--blue); }
+  .btn-sm-primary:hover { background: var(--blue-h); }
+  .btn-sm-ghost { background: rgba(255,255,255,0.06); color: var(--sec); }
+  .btn-sm-ghost:hover { background: rgba(255,255,255,0.12); color: var(--text); }
+  .btn-sm-danger { background: none; color: #ff8fbf; border-color: rgba(255,0,127,0.28); }
+  .btn-sm-danger:hover { background: rgba(255,0,127,0.12); }
+
+  .preset-name-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 24px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+  }
+  .preset-name-row label { font-size: 12px; color: var(--sec); white-space: nowrap; }
+  .preset-name-row input { max-width: 300px; flex: 1; }
+
+  .modal-panels { display: flex; flex: 1; overflow: hidden; min-height: 0; }
+  .mpanel { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  .mpanel-toolbox { border-right: 1px solid var(--border); }
+  .mpanel-header {
+    font-family: var(--display); font-size: 10px; font-weight: 700; color: var(--ter);
+    text-transform: uppercase; letter-spacing: 0.10em;
+    padding: 10px 16px 6px; flex-shrink: 0; display: flex; align-items: baseline; gap: 8px;
+  }
+  .mpanel-hint { font-size: 10px; color: var(--ter); font-weight: 400; text-transform: none; letter-spacing: 0; }
+  .mpanel-body { flex: 1; overflow-y: auto; padding: 4px 8px 8px; }
+
+  .tool-item {
+    display: flex; align-items: center; gap: 8px; padding: 7px 8px;
+    border-radius: 6px; cursor: grab; user-select: none; transition: background 0.1s, opacity 0.1s;
+  }
+  .tool-item:hover { background: rgba(255,255,255,0.06); }
+  .tool-item.dragging { opacity: 0.35; }
+  .tool-handle { color: var(--ter); font-size: 14px; flex-shrink: 0; }
+  .tool-label  { font-size: 12px; color: var(--text); }
+  .toolbox-empty { font-size: 12px; color: var(--ter); padding: 20px; text-align: center; }
+  .tool-add-blank {
+    display: flex; align-items: center; gap: 8px; padding: 7px 8px;
+    border-radius: 6px; cursor: pointer; user-select: none;
+    color: var(--cyan); border: 1.5px dashed rgba(2,200,255,0.28);
+    margin: 4px 2px; transition: background 0.1s;
+  }
+  .tool-add-blank:hover { background: rgba(2,200,255,0.07); }
+  .tool-add-blank-icon  { font-size: 14px; flex-shrink: 0; }
+  .tool-add-blank-label { font-size: 12px; font-weight: 500; }
+
+  .active-item {
+    display: flex; align-items: center; gap: 6px; padding: 5px 6px;
+    border-radius: 6px; cursor: grab; user-select: none; transition: background 0.1s;
+  }
+  .active-item:hover { background: rgba(255,255,255,0.06); }
+  .active-item.dragging { opacity: 0.3; }
+  .active-item.dov-top    { box-shadow: 0 -2px 0 var(--blue); }
+  .active-item.dov-bottom { box-shadow:  0  2px 0 var(--blue); }
+  .active-handle { color: var(--ter); cursor: grab; font-size: 14px; flex-shrink: 0; }
+  .active-handle:active { cursor: grabbing; }
+  .active-col-name {
+    font-size: 11px; color: var(--ter); flex-shrink: 0;
+    width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .active-col-label {
+    flex: 1; min-width: 0; font-size: 12px; padding: 4px 7px;
+    border-radius: 5px; border: 1px solid transparent;
+    background: transparent; color: var(--text); font-family: var(--sans);
+    transition: border-color 0.18s, background 0.18s, box-shadow 0.18s;
+  }
+  .active-col-label:hover { background: rgba(255,255,255,0.06); }
+  .active-col-label:focus {
+    outline: none; border-color: var(--blue); background: rgba(255,255,255,0.08);
+    box-shadow: 0 0 0 2px rgba(10,96,255,0.22);
+  }
+  .active-remove {
+    width: 18px; height: 18px; border-radius: 50%; border: none; background: transparent;
+    color: var(--ter); cursor: pointer; font-size: 10px;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    transition: background 0.1s, color 0.1s; padding: 0;
+  }
+  .active-remove:hover { background: rgba(255,0,127,0.18); color: #ff8fbf; }
+  .active-drop-footer {
+    min-height: 44px; display: flex; align-items: center; justify-content: center;
+    border-radius: 8px; border: 1.5px dashed transparent; margin: 4px 2px;
+    font-size: 12px; color: var(--ter); transition: border-color 0.18s, background 0.18s, color 0.18s;
+  }
+  .active-drop-footer.over { border-color: var(--blue); background: rgba(10,96,255,0.08); color: #9cb6ff; }
+
+  .modal-footer {
+    display: flex; align-items: center; gap: 8px;
+    padding: 12px 24px; border-top: 1px solid var(--border); flex-shrink: 0;
+  }
+  .unsaved-dot { display: none; width: 7px; height: 7px; border-radius: 50%; background: #FF9000; flex-shrink: 0; }
+  .unsaved-dot.visible { display: block; }
+  .unsaved-label { font-size: 12px; color: var(--sec); flex: 1; }
+  .btn-apply-only {
+    padding: 8px 16px; background: rgba(255,255,255,0.06); border: 1px solid var(--border);
+    border-radius: 8px; font-family: var(--sans); font-size: 13px; font-weight: 500;
+    color: var(--sec); cursor: pointer; transition: background 0.18s, color 0.18s;
+  }
+  .btn-apply-only:hover { background: rgba(255,255,255,0.12); color: var(--text); }
+  .btn-save-apply {
+    padding: 8px 20px; background: var(--blue); color: white; border: none;
+    border-radius: 8px; font-family: var(--sans); font-size: 13px; font-weight: 500;
+    cursor: pointer; transition: background 0.18s, box-shadow 0.18s;
+  }
+  .btn-save-apply:hover { background: var(--blue-h); box-shadow: 0 4px 12px rgba(10,96,255,0.40); }
+
+  /* ── History modal ───────────────────────────────────────────────────── */
+  .hist-list { flex: 1; overflow-y: auto; min-height: 0; padding: 8px 20px 20px; display: flex; flex-direction: column; gap: 10px; }
+  .hist-empty { text-align: center; color: var(--ter); font-size: 13px; padding: 48px 0; line-height: 1.8; }
+  .hist-entry {
+    border: 1px solid var(--border); background: rgba(255,255,255,0.04);
+    border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px;
+    transition: background 0.18s, border-color 0.18s;
+  }
+  .hist-entry:hover { background: rgba(255,255,255,0.07); border-color: rgba(255,255,255,0.15); }
+  .hist-entry-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+  .hist-entry-label { font-family: var(--display); font-size: 13px; font-weight: 700; color: var(--text); }
+  .hist-entry-ts    { font-size: 11px; color: var(--ter); margin-top: 2px; }
+  .hist-entry-total { font-family: var(--display); font-size: 22px; font-weight: 700; color: var(--cyan); flex-shrink: 0; text-align: right; line-height: 1; }
+  .hist-entry-total-sub { font-size: 10px; font-weight: 400; color: var(--ter); }
+
+  .hist-eox-row { display: flex; flex-wrap: wrap; gap: 5px; }
+  .hist-badge {
+    font-family: var(--display); font-size: 11px; font-weight: 600;
+    padding: 2px 9px; border-radius: 10px; white-space: nowrap;
+  }
+  .hist-badge-clickable { cursor: pointer; user-select: none; }
+  .hist-badge-clickable:hover { filter: brightness(1.15); }
+  .hist-pid-list { display: none; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+  .hist-pid-list.open { display: flex; }
+  .hist-pid-chip { font-size: 11px; font-weight: 500; font-family: var(--mono); padding: 2px 8px; border-radius: 6px; white-space: nowrap; }
+
+  .hist-coverage-row { display: flex; flex-direction: column; gap: 6px; }
+  .hist-cov-item { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--sec); }
+  .hist-cov-label { width: 100px; flex-shrink: 0; }
+  .hist-cov-bar { flex: 1; height: 4px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden; }
+  .hist-cov-fill { height: 100%; border-radius: 3px; }
+  .hist-cov-pct { width: 36px; text-align: right; font-weight: 500; flex-shrink: 0; }
+  .hist-eox-bar {
+    flex: 1; height: 4px; border-radius: 3px; overflow: hidden;
+    display: flex; gap: 1px; background: rgba(255,255,255,0.06);
+  }
+  .hist-eox-bar-seg { height: 100%; transition: width 0.3s; }
+  /* ── History replacement count + repair ─────────────────────────────── */
+  .hist-repl-count { font-size: 11px; color: var(--ter); display: flex; align-items: center; gap: 7px; }
+  .hist-repl-count b { color: var(--sec); font-weight: 600; }
+  .hist-repl-repair {
+    font-size: 10px; color: var(--ter); cursor: pointer; background: none; border: none;
+    padding: 1px 7px; border-radius: 6px; font-family: var(--sans);
+    border: 1px solid var(--border); transition: background 0.15s, color 0.15s;
+    position: relative; overflow: hidden;
+  }
+  .hist-repl-repair:hover { background: rgba(255,255,255,0.08); color: var(--sec); }
+  .hist-repl-repair input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+
+  /* ── Compare modal ───────────────────────────────────────────────────── */
+  .cmp-modal-card {
+    width: min(960px, 96vw);
+    background: linear-gradient(160deg, rgba(10,96,255,0.12) 0%, rgba(5,16,34,0.92) 55%);
+    backdrop-filter: blur(72px); -webkit-backdrop-filter: blur(72px);
+    border: 1px solid rgba(255,255,255,0.13); border-radius: 20px;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.10), 0 32px 96px rgba(0,0,0,0.70);
+    display: flex; flex-direction: column; overflow: hidden; max-height: 90vh;
+  }
+  .cmp-upload-zone {
+    display: flex; gap: 12px; padding: 20px 24px 20px;
+    border-bottom: 1px solid var(--border); align-items: flex-end; flex-shrink: 0;
+  }
+  .cmp-dropzone {
+    flex: 1; border: 1.5px dashed rgba(255,255,255,0.16); border-radius: 12px;
+    padding: 14px 16px; cursor: pointer; position: relative;
+    display: flex; flex-direction: column; gap: 6px;
+    transition: border-color 0.18s, background 0.18s;
+  }
+  .cmp-dropzone:hover   { border-color: var(--cyan); background: rgba(2,200,255,0.04); }
+  .cmp-dropzone.drag-over { border-color: var(--cyan); background: rgba(2,200,255,0.07); }
+  .cmp-dropzone.has-file  { border-style: solid; border-color: rgba(10,96,255,0.50); background: rgba(10,96,255,0.06); }
+  .cmp-dropzone input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+  .cmp-dz-label    { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ter); }
+  .cmp-dz-text     { font-size: 13px; color: var(--sec); }
+  .cmp-dz-text span{ color: var(--cyan); }
+  .cmp-dz-filename { font-size: 12px; color: var(--text); font-family: var(--mono); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cmp-dz-hint     { font-size: 11px; color: var(--ter); }
+  .btn-compare {
+    padding: 10px 22px; background: var(--blue); color: #fff;
+    font-family: var(--display); font-size: 14px; font-weight: 700;
+    border: none; border-radius: 10px; cursor: pointer; white-space: nowrap;
+    box-shadow: 0 4px 20px -6px rgba(10,96,255,0.70);
+    transition: background 0.18s, box-shadow 0.18s; align-self: flex-end;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .btn-compare:hover    { background: var(--blue-h); }
+  .btn-compare:disabled { background: rgba(255,255,255,0.07); color: var(--ter); box-shadow: none; cursor: not-allowed; }
+  .cmp-results { flex: 1; overflow-y: auto; min-height: 0; padding: 0 24px 28px; }
+  .cmp-placeholder { text-align: center; color: var(--ter); font-size: 13px; padding: 48px 0; line-height: 1.8; }
+  .cmp-summary {
+    display: flex; gap: 8px; flex-wrap: wrap;
+    padding: 18px 0 14px; border-bottom: 1px solid var(--border); margin-bottom: 20px;
+  }
+  .cmp-pill {
+    font-size: 12px; font-weight: 600; padding: 5px 13px; border-radius: 20px;
+    cursor: pointer; transition: filter 0.15s, transform 0.1s; user-select: none; border: 1px solid transparent;
+  }
+  .cmp-pill:hover  { filter: brightness(1.18); }
+  .cmp-pill:active { transform: scale(0.97); }
+  .cmp-pill-changed  { background: rgba(255,170,68,0.14); color: #ffc074; border-color: rgba(255,170,68,0.30); }
+  .cmp-pill-added    { background: rgba(0,232,154,0.11); color: #7fffc7; border-color: rgba(0,232,154,0.28); }
+  .cmp-pill-removed  { background: rgba(255,0,127,0.10); color: #ff8fbf; border-color: rgba(255,0,127,0.25); }
+  .cmp-pill-same     { background: rgba(255,255,255,0.05); color: var(--ter); border-color: var(--border); cursor: default; }
+  .cmp-pill-same:hover { filter: none; }
+  .cmp-sec-title {
+    font-family: var(--display); font-size: 11px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.09em; color: var(--ter);
+    margin: 0 0 10px; padding-top: 4px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .cmp-sec-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+  .cmp-table-wrap { overflow-x: auto; margin-bottom: 28px; }
+  .cmp-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .cmp-table th {
+    text-align: left; font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.07em; color: var(--ter); padding: 7px 12px;
+    border-bottom: 1px solid var(--border); white-space: nowrap; background: rgba(255,255,255,0.02);
+  }
+  .cmp-table td {
+    padding: 8px 12px; border-bottom: 1px solid rgba(255,255,255,0.04);
+    vertical-align: middle; line-height: 1.45;
+  }
+  .cmp-table tr:last-child td { border-bottom: none; }
+  .cmp-pid  { font-family: var(--mono); font-weight: 600; font-size: 12px; color: var(--text); white-space: nowrap; vertical-align: top; padding-top: 10px; }
+  .cmp-col  { font-size: 11px; color: var(--ter); white-space: nowrap; min-width: 130px; }
+  .cmp-old  { color: #ff8fbf; text-decoration: line-through; font-size: 12px; }
+  .cmp-new  { color: #7fffc7; font-size: 12px; }
+  .cmp-dash { color: var(--ter); font-style: italic; font-size: 11px; }
+  .cmp-arrow{ color: var(--ter); font-size: 10px; margin: 0 5px; }
+  .cmp-row-grp td  { border-top: 1px solid rgba(255,255,255,0.08); }
+  .cmp-row-added   { background: rgba(0,232,154,0.04); }
+  .cmp-row-removed { background: rgba(255,0,127,0.04); }
+  .cmp-val-added   { color: #7fffc7; font-size: 12px; }
+  .cmp-val-removed { color: #ff8fbf; font-size: 12px; }
+  .cmp-sec-empty   { font-size: 12px; color: var(--ter); padding: 12px 0 20px; }
+
+  .hist-cols-toggle { font-size: 11px; color: var(--cyan); cursor: pointer; user-select: none; width: fit-content; }
+  .hist-cols-toggle:hover { text-decoration: underline; }
+  .hist-cols-grid { display: none; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 4px; margin-top: 4px; }
+  .hist-cols-grid.open { display: grid; }
+  .hist-col-item {
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 11px; color: var(--sec); background: rgba(255,255,255,0.04);
+    border-radius: 6px; padding: 3px 8px;
+  }
+  .hist-col-item b { color: var(--text); font-weight: 600; }
+  .hist-header-actions { display: flex; align-items: center; gap: 8px; }
+  .hist-entry-delete {
+    width: 26px; height: 26px; border-radius: 7px; border: 1px solid transparent;
+    background: transparent; color: var(--ter); cursor: pointer; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.18s, border-color 0.18s, color 0.18s;
+  }
+  .hist-entry-delete:hover {
+    background: rgba(255,0,127,0.14); border-color: rgba(255,0,127,0.28); color: #ff8fbf;
+  }
+
+  /* ── SKU Inspector ───────────────────────────────────────────────────── */
+  .insp-modal-input {
+    display: flex; gap: 8px; padding: 14px 24px 12px;
+    border-bottom: 1px solid var(--border); flex-shrink: 0; align-items: center;
+  }
+  .insp-modal-input input { flex: 1; font-family: var(--mono); }
+  .btn-inspect {
+    padding: 9px 18px; background: var(--blue); color: #fff; border: none;
+    border-radius: 9px; font-family: var(--sans); font-size: 13px; font-weight: 500;
+    cursor: pointer; white-space: nowrap; display: flex; align-items: center; gap: 6px;
+    transition: background 0.18s, box-shadow 0.18s;
+  }
+  .btn-inspect:hover    { background: var(--blue-h); box-shadow: 0 4px 12px rgba(10,96,255,0.40); }
+  .btn-inspect:disabled { background: rgba(255,255,255,0.08); color: var(--ter); border: 1px solid var(--border); box-shadow: none; cursor: not-allowed; }
+
+  .inspector-results { flex: 1; overflow-y: auto; min-height: 0; padding: 0 24px 24px; }
+  .insp-section-title {
+    font-family: var(--display); font-size: 10px; font-weight: 700; color: var(--ter);
+    text-transform: uppercase; letter-spacing: 0.10em; margin: 14px 0 6px;
+  }
+  .insp-grid {
+    display: grid; grid-template-columns: 160px 1fr;
+    border-radius: 10px; overflow: hidden; border: 1px solid var(--border);
+  }
+  .insp-row { display: contents; }
+  .insp-row:not(:last-child) .insp-key,
+  .insp-row:not(:last-child) .insp-val { border-bottom: 1px solid var(--border); }
+  .insp-row:nth-child(even) .insp-key,
+  .insp-row:nth-child(even) .insp-val  { background: rgba(255,255,255,0.025); }
+  .insp-key {
+    font-size: 11px; font-weight: 500; color: var(--sec); background: rgba(255,255,255,0.02);
+    padding: 6px 10px; display: flex; align-items: center; border-right: 1px solid var(--border);
+  }
+  .insp-val {
+    font-size: 12px; color: var(--text); padding: 6px 10px;
+    font-family: var(--mono); word-break: break-all; display: flex; align-items: center;
+  }
+  .insp-val.empty  { color: var(--ter); font-style: italic; font-family: var(--sans); }
+  .insp-val.eox-eol { color: #ff8fbf; font-weight: 600; font-family: var(--sans); }
+  .insp-val.eox-eos { color: #ffc674; font-weight: 600; font-family: var(--sans); }
+  .insp-val.eox-act { color: #7fffc7; font-weight: 600; font-family: var(--sans); }
+  .insp-val.eox-inv { color: #ff8fbf; font-style: italic; font-family: var(--sans); }
+  .insp-val.eox-nor { color: var(--sec); font-family: var(--sans); }
+
+  .insp-raw-toggle { margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn-raw {
+    font-size: 11px; padding: 4px 11px; border-radius: 6px; cursor: pointer;
+    border: 1px solid var(--border); background: rgba(255,255,255,0.06);
+    color: var(--sec); font-family: var(--sans); transition: background 0.18s, color 0.18s;
+  }
+  .btn-raw:hover  { background: rgba(255,255,255,0.12); color: var(--text); }
+  .btn-raw.active { background: rgba(255,255,255,0.88); color: #07182D; border-color: transparent; }
+  .insp-raw-block {
+    display: none; margin-top: 8px; background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border); border-radius: 10px;
+    padding: 12px 14px; font-size: 11px; font-family: var(--mono);
+    color: var(--sec); white-space: pre-wrap; word-break: break-all;
+    max-height: 320px; overflow-y: auto; line-height: 1.7;
+  }
+  .insp-raw-block.open { display: block; }
+</style>
+</head>
+<body>
+<div class="aurora-bg" aria-hidden="true"></div>
+
+<!-- Topbar -->
+<header class="topbar">
+  <div class="topbar-logo">
+    <div class="cisco-bars">
+      <span style="height:6px"></span><span style="height:12px"></span>
+      <span style="height:18px"></span><span style="height:12px"></span>
+      <span style="height:6px"></span><span style="height:12px"></span>
+      <span style="height:6px"></span>
+    </div>
+    <span class="topbar-title">End Of Life Assistant</span>
+  </div>
+  <span class="topbar-powered">powered by Cisco Support APIs</span>
+  <div class="topbar-sep"></div>
+  <button class="topbar-btn" onclick="openCompare()">
+    <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+      <path d="M1 2h4.5v9H1zM7.5 2H12v9H7.5z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+      <path d="M5.5 6.5H7.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+    </svg>
+    Compare
+  </button>
+  <button class="topbar-btn" onclick="openInspector()">
+    <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+      <circle cx="5.5" cy="5.5" r="4" stroke="currentColor" stroke-width="1.5"/>
+      <path d="M9 9l2.5 2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+    </svg>
+    Inspector
+  </button>
+  <button class="topbar-btn" onclick="openHistory()">
+    <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+      <circle cx="6.5" cy="6.5" r="5" stroke="currentColor" stroke-width="1.4"/>
+      <path d="M6.5 3.5V7l2 1.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    History
+    <span class="topbar-badge-pill" id="histBadge">0</span>
+  </button>
+</header>
+
+<!-- Page -->
+<div class="page">
+
+  <!-- Credentials -->
+  <div class="creds-card">
+    <button class="creds-toggle" onclick="toggleCreds()">
+      <span class="creds-toggle-label">API Credentials</span>
+      <span class="creds-summary" id="credsSummary"></span>
+      <span class="creds-chevron" id="credsChevron">▸</span>
+    </button>
+    <div class="creds-body" id="credsBody">
+      <div class="creds-fields">
+        <div class="field">
+          <label>Client ID</label>
+          <input type="text" id="clientId" placeholder="your-client-id" autocomplete="off" spellcheck="false"
+                 value="{{ default_client_id }}" oninput="updateCredsSummary()" />
+        </div>
+        <div class="field">
+          <label>Client Secret</label>
+          <input type="password" id="clientSecret" placeholder="••••••••••••••••" autocomplete="off"
+                 value="{{ default_client_secret }}" oninput="updateCredsSummary()" />
+        </div>
+      </div>
+      <div class="creds-note">
+        Credentials from <strong>apiconsole.cisco.com</strong> · Requires SNTC or PSS contract<br>
+        APIs: EoX v5 · Product Info v1 · SW Suggestion v2
+      </div>
+    </div>
+  </div>
+
+  <!-- Input card -->
+  <div class="input-card glass-card">
+    <div class="input-card-header">
+      <div class="input-card-title">Enter SKUs</div>
+      <div class="input-card-subtitle">Paste product IDs, or upload an Excel file to enrich it</div>
+    </div>
+
+    <div class="input-zone" id="inputZone">
+      <textarea id="skuInput"
+        placeholder="ASR1001-X&#10;WS-C3750X-48P-S&#10;C2801-10UC-VSEC/K9&#10;&#10;One per line, or comma-separated"
+        oninput="onTextInput()" spellcheck="false"></textarea>
+      <div class="input-or">or</div>
+      <div class="drop-hint" id="dropHint">
+        <div class="drop-hint-icon">↑</div>
+        <div>
+          <div class="drop-hint-text"><span>Choose a file</span> or drag &amp; drop</div>
+          <div class="drop-hint-sub">.xlsx — SKUs read from first column</div>
+        </div>
+        <input type="file" id="fileInput" accept=".xlsx,.xlsm" onchange="onFileSelected(this)" />
+      </div>
+      <div class="file-chip" id="fileChip">
+        <div class="file-chip-icon">📊</div>
+        <div style="flex:1;min-width:0">
+          <div class="file-chip-name" id="fileChipName" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
+          <div class="file-chip-size" id="fileChipSize"></div>
+        </div>
+        <button class="file-chip-clear" onclick="clearFile()" title="Remove file">✕</button>
+      </div>
+    </div>
+
+    <div class="action-row">
+      <div class="sku-count" id="skuCount"></div>
+      <button class="btn-columns" onclick="openModal()">
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+          <rect x="1" y="1" width="3" height="11" rx="1" stroke="currentColor" stroke-width="1.4"/>
+          <rect x="5" y="1" width="3" height="11" rx="1" stroke="currentColor" stroke-width="1.4"/>
+          <rect x="9" y="1" width="3" height="11" rx="1" stroke="currentColor" stroke-width="1.4"/>
+        </svg>
+        <span class="btn-columns-name" id="presetChipName">Default</span>
+        <span class="btn-columns-count" id="presetChipCount">15</span>
+      </button>
+      <button class="btn-generate" id="generateBtn" onclick="generate()" disabled>
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <path d="M7 1v8M3.5 5.5l3.5 3.5 3.5-3.5M1 12h12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Generate Excel
+      </button>
+    </div>
+  </div>
+
+  <!-- Status -->
+  <div class="status-area" id="statusArea">
+    <div class="progress-card" id="progressCard">
+      <div class="progress-top">
+        <span class="spinner"></span>
+        <span class="progress-msg" id="progressMsg">Starting…</span>
+        <span class="progress-pct" id="progressPct">0%</span>
+      </div>
+      <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+      <div class="steps-row" id="stepsRow"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── Preset modal ──────────────────────────────────────────────────────── -->
+<div id="presetModal" class="modal-overlay" style="display:none" onclick="overlayClick(event)">
+  <div class="modal-card">
+    <div class="modal-header">
+      <span class="modal-title">Column Presets</span>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-preset-bar">
+      <span class="modal-preset-label">Preset</span>
+      <select id="presetSelect" onchange="switchPreset(this.value)"></select>
+      <button class="btn-sm btn-sm-primary" onclick="newPreset()">+ New</button>
+      <button class="btn-sm btn-sm-danger"  onclick="deletePreset()">Delete</button>
+    </div>
+    <div class="preset-name-row">
+      <label>Name</label>
+      <input type="text" id="presetNameInput" placeholder="My Preset" oninput="markUnsaved()" />
+    </div>
+    <div class="modal-panels">
+      <div class="mpanel mpanel-toolbox">
+        <div class="mpanel-header">Available columns</div>
+        <div class="mpanel-body" id="toolboxList"
+             ondragover="toolboxDragOver(event)" ondrop="toolboxDrop(event)"></div>
+      </div>
+      <div class="mpanel">
+        <div class="mpanel-header">
+          Active columns
+          <span class="mpanel-hint">drag to reorder · edit label to rename in Excel</span>
+        </div>
+        <div class="mpanel-body" id="activeList"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <span class="unsaved-dot" id="unsavedDot"></span>
+      <span class="unsaved-label" id="unsavedLabel"></span>
+      <button class="btn-apply-only" onclick="applyOnly()">Apply without saving</button>
+      <button class="btn-save-apply" onclick="saveAndApply()">Save &amp; Apply</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── History modal ─────────────────────────────────────────────────────── -->
+<div id="historyModal" class="modal-overlay" style="display:none" onclick="histOverlayClick(event)">
+  <div class="hist-modal-card">
+    <div class="modal-header">
+      <span class="modal-title">Request History</span>
+      <div class="hist-header-actions">
+        <button class="btn-sm btn-sm-danger" onclick="clearHistory()">Clear all</button>
+        <button class="modal-close" onclick="closeHistory()">✕</button>
+      </div>
+    </div>
+    <div class="hist-list" id="histList"></div>
+  </div>
+</div>
+
+<!-- ── SKU Inspector modal ───────────────────────────────────────────────── -->
+<div id="inspectorModal" class="modal-overlay" style="display:none" onclick="inspectorOverlayClick(event)">
+  <div class="insp-modal-card">
+    <div class="modal-header">
+      <span class="modal-title">SKU Inspector</span>
+      <button class="modal-close" onclick="closeInspector()">✕</button>
+    </div>
+    <div class="insp-modal-input">
+      <input type="text" id="inspectorSku" placeholder="e.g. C9300-48P" spellcheck="false"
+             onkeydown="if(event.key==='Enter') inspectSku()" />
+      <button class="btn-inspect" id="inspectBtn" onclick="inspectSku()">
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+          <circle cx="5.5" cy="5.5" r="4" stroke="currentColor" stroke-width="1.5"/>
+          <path d="M9 9l2.5 2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+        Inspect
+      </button>
+    </div>
+    <div class="inspector-results" id="inspectorResults">
+      <div class="insp-section-title" style="margin-top:16px">Column values</div>
+      <div class="insp-grid" id="inspColGrid"></div>
+      <div class="insp-raw-toggle" style="margin-top:14px">
+        <button class="btn-raw" id="rawBtnEox"  onclick="toggleRaw('eox')">EoX raw</button>
+        <button class="btn-raw" id="rawBtnInfo" onclick="toggleRaw('info')">Product Info raw</button>
+        <button class="btn-raw" id="rawBtnSw"   onclick="toggleRaw('sw')">SW Suggestion raw</button>
+      </div>
+      <pre class="insp-raw-block" id="rawBlockEox"></pre>
+      <pre class="insp-raw-block" id="rawBlockInfo"></pre>
+      <pre class="insp-raw-block" id="rawBlockSw"></pre>
+    </div>
+  </div>
+</div>
+
+<!-- ── Compare modal ──────────────────────────────────────────────────────── -->
+<div id="compareModal" class="modal-overlay" style="display:none" onclick="cmpOverlayClick(event)">
+  <div class="cmp-modal-card">
+    <div class="modal-header">
+      <span class="modal-title">Compare Excel Reports</span>
+      <button class="modal-close" onclick="closeCompare()">✕</button>
+    </div>
+
+    <div class="cmp-upload-zone">
+      <!-- File A -->
+      <div class="cmp-dropzone" id="cmpDropA"
+           ondragover="cmpDragOver(event,'A')" ondragleave="cmpDragLeave(event,'A')" ondrop="cmpDrop(event,'A')">
+        <div class="cmp-dz-label">File A — Reference</div>
+        <div id="cmpBodyA">
+          <div class="cmp-dz-text"><span>Choose</span> or drop .xlsx</div>
+          <div class="cmp-dz-hint">Baseline report</div>
+        </div>
+        <input type="file" id="cmpFileInputA" accept=".xlsx,.xlsm" onchange="cmpFileSelected(this,'A')" />
+      </div>
+      <!-- File B -->
+      <div class="cmp-dropzone" id="cmpDropB"
+           ondragover="cmpDragOver(event,'B')" ondragleave="cmpDragLeave(event,'B')" ondrop="cmpDrop(event,'B')">
+        <div class="cmp-dz-label">File B — New</div>
+        <div id="cmpBodyB">
+          <div class="cmp-dz-text"><span>Choose</span> or drop .xlsx</div>
+          <div class="cmp-dz-hint">Updated report</div>
+        </div>
+        <input type="file" id="cmpFileInputB" accept=".xlsx,.xlsm" onchange="cmpFileSelected(this,'B')" />
+      </div>
+      <button class="btn-compare" id="cmpBtn" onclick="runCompare()" disabled>
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+          <path d="M1 2h4.5v9H1zM7.5 2H12v9H7.5z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+          <path d="M5.5 6.5H7.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+        </svg>
+        Compare
+      </button>
+    </div>
+
+    <div class="cmp-results" id="cmpResults">
+      <div class="cmp-placeholder">Upload two Excel files generated with the same preset to compare them.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const _origin = (window.location.origin && window.location.origin !== 'null')
+  ? window.location.origin : 'http://localhost:5001';
+
+// ── Preset system ─────────────────────────────────────────────────────────────
+
+const ALL_COLUMNS  = {{ all_columns | tojson }};
+
+function uid() { return Math.random().toString(36).slice(2, 10); }
+
+function defaultPreset() {
+  return { id: 'default', name: 'Default', cols: ALL_COLUMNS.map(c => ({ col: c, label: c })) };
+}
+
+// In-memory state — populated by initServerData() on load
+let _presets = [defaultPreset()];
+let _activePresetId = 'default';
+let _history = [];
+
+function loadPresets()   { return _presets; }
+function savePresets(p)  { _presets = p; _syncPresets(); }
+function getActiveId()   { return _activePresetId; }
+function setActiveId(id) { _activePresetId = id; _syncPresets(); }
+
+function _syncPresets() {
+  fetch(_origin + '/api/presets', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ presets: _presets, active: _activePresetId }),
+  }).catch(() => {});
+}
+
+function getActivePreset() {
+  const id = getActiveId();
+  return loadPresets().find(p => p.id === id) || loadPresets()[0] || defaultPreset();
+}
+
+// Called by the generate function
+function getSelectedColumns() { return getActivePreset().cols; }
+
+// ── Sidebar chip update ────────────────────────────────────────────────────────
+
+function refreshSidebarChip() {
+  const p = getActivePreset();
+  document.getElementById('presetChipName').textContent  = p.name;
+  document.getElementById('presetChipCount').textContent = p.cols.length;
+}
+
+// ── Modal state ────────────────────────────────────────────────────────────────
+
+let _mId   = null;   // preset id being edited
+let _mCols = [];     // [{col, label}] working state
+let _dirty = false;
+
+function openModal() {
+  const p = getActivePreset();
+  _mId   = p.id;
+  _mCols = p.cols.map(c => ({ ...c }));
+  renderPresetBar();
+  renderNameInput();
+  renderToolbox();
+  renderActiveList();
+  setDirty(false);
+  document.getElementById('presetModal').style.display = 'flex';
+}
+
+function closeModal() { document.getElementById('presetModal').style.display = 'none'; }
+function overlayClick(e) { if (e.target === document.getElementById('presetModal')) closeModal(); }
+
+function switchPreset(id) {
+  if (_dirty && !confirm('Discard unsaved changes?')) { renderPresetBar(); return; }
+  _mId   = id;
+  const p = loadPresets().find(q => q.id === id) || defaultPreset();
+  _mCols = p.cols.map(c => ({ ...c }));
+  renderNameInput();
+  renderToolbox();
+  renderActiveList();
+  setDirty(false);
+}
+
+function newPreset() {
+  const id = uid();
+  const p  = { id, name: 'New Preset', cols: ALL_COLUMNS.map(c => ({ col: c, label: c })) };
+  const ps = loadPresets();
+  ps.push(p);
+  savePresets(ps);
+  _mId   = id;
+  _mCols = p.cols.map(c => ({ ...c }));
+  renderPresetBar();
+  renderNameInput();
+  renderToolbox();
+  renderActiveList();
+  setDirty(false);
+  document.getElementById('presetNameInput').focus();
+  document.getElementById('presetNameInput').select();
+}
+
+function deletePreset() {
+  let ps = loadPresets();
+  if (ps.length <= 1) { alert('Cannot delete the last preset.'); return; }
+  if (!confirm(`Delete preset "${ps.find(p => p.id === _mId)?.name || 'this preset'}"?`)) return;
+  ps = ps.filter(p => p.id !== _mId);
+  savePresets(ps);
+  if (getActiveId() === _mId) setActiveId(ps[0].id);
+  _mId   = ps[0].id;
+  _mCols = ps[0].cols.map(c => ({ ...c }));
+  renderPresetBar();
+  renderNameInput();
+  renderToolbox();
+  renderActiveList();
+  setDirty(false);
+}
+
+function saveAndApply() {
+  const name = document.getElementById('presetNameInput').value.trim() || 'Unnamed';
+  let ps = loadPresets();
+  const idx = ps.findIndex(p => p.id === _mId);
+  const updated = { id: _mId, name, cols: _mCols.map(c => ({ ...c })) };
+  if (idx >= 0) ps[idx] = updated; else ps.push(updated);
+  savePresets(ps);
+  setActiveId(_mId);
+  setDirty(false);
+  refreshSidebarChip();
+  closeModal();
+}
+
+function applyOnly() {
+  setActiveId(_mId);
+  refreshSidebarChip();
+  closeModal();
+}
+
+function setDirty(v) {
+  _dirty = v;
+  document.getElementById('unsavedDot').classList.toggle('visible', v);
+  document.getElementById('unsavedLabel').textContent = v ? 'Unsaved changes' : '';
+}
+function markUnsaved() { setDirty(true); }
+
+// ── Modal render ───────────────────────────────────────────────────────────────
+
+function renderPresetBar() {
+  const ps  = loadPresets();
+  const sel = document.getElementById('presetSelect');
+  sel.innerHTML = ps.map(p =>
+    `<option value="${p.id}" ${p.id === _mId ? 'selected' : ''}>${esc(p.name)}</option>`
+  ).join('');
+}
+
+function renderNameInput() {
+  const p = loadPresets().find(q => q.id === _mId);
+  document.getElementById('presetNameInput').value = p ? p.name : '';
+}
+
+function renderToolbox() {
+  const active = new Set(_mCols.map(c => c.col));
+  const el = document.getElementById('toolboxList');
+  el.innerHTML = '';
+
+  const avail = ALL_COLUMNS.filter(c => !active.has(c));
+  if (!avail.length) {
+    el.innerHTML = '<div class="toolbox-empty">All columns are active</div>';
+  }
+  avail.forEach(col => {
+    const div = document.createElement('div');
+    div.className   = 'tool-item';
+    div.draggable   = true;
+    div.dataset.col = col;
+    div.innerHTML   = `<span class="tool-handle">⠿</span><span class="tool-label">${esc(col)}</span>`;
+    div.addEventListener('dragstart', e => {
+      _drag = { src: 'toolbox', col, idx: null };
+      e.dataTransfer.effectAllowed = 'copy';
+      setTimeout(() => div.classList.add('dragging'), 0);
+    });
+    div.addEventListener('dragend', () => div.classList.remove('dragging'));
+    el.appendChild(div);
+  });
+
+  // Always show "Add blank column" regardless of available columns
+  const addBtn = document.createElement('div');
+  addBtn.className = 'tool-add-blank';
+  addBtn.innerHTML = `<span class="tool-add-blank-icon">+</span><span class="tool-add-blank-label">Add blank column</span>`;
+  addBtn.onclick = addBlankCol;
+  el.appendChild(addBtn);
+}
+
+function renderActiveList() {
+  const el = document.getElementById('activeList');
+  el.innerHTML = '';
+
+  _mCols.forEach((c, idx) => {
+    const isBlank = c.col === '__blank__';
+    const div = document.createElement('div');
+    div.className  = 'active-item';
+    div.draggable  = true;
+    div.dataset.idx = idx;
+    div.innerHTML  = `
+      <span class="active-handle">⠿</span>
+      ${isBlank
+        ? `<span class="active-col-name" title="Blank column" style="color:var(--blue);font-style:italic;font-size:10px;background:rgba(0,113,227,0.08);border-radius:4px;padding:1px 5px">blank</span>`
+        : `<span class="active-col-name" title="${esc(c.col)}">${esc(c.col)}</span>`}
+      <input class="active-col-label" type="text" value="${esc(c.label)}"
+             placeholder="${isBlank ? 'Column header…' : esc(c.col)}" oninput="updateLabel(${idx},this.value)" />
+      <button class="active-remove" onclick="removeCol(${idx})" title="Remove">✕</button>
+    `;
+    div.addEventListener('dragstart', e => {
+      _drag = { src: 'active', idx, col: c.col };
+      e.dataTransfer.effectAllowed = 'move';
+      setTimeout(() => div.classList.add('dragging'), 0);
+    });
+    div.addEventListener('dragend', () => {
+      div.classList.remove('dragging');
+      clearDragStyles();
+    });
+    div.addEventListener('dragover', e => {
+      e.preventDefault(); e.stopPropagation();
+      clearDragStyles();
+      const r = div.getBoundingClientRect();
+      div.classList.add(e.clientY < r.top + r.height / 2 ? 'dov-top' : 'dov-bottom');
+    });
+    div.addEventListener('dragleave', e => {
+      if (!div.contains(e.relatedTarget)) div.classList.remove('dov-top', 'dov-bottom');
+    });
+    div.addEventListener('drop', e => {
+      e.preventDefault(); e.stopPropagation();
+      const r     = div.getBoundingClientRect();
+      const after = e.clientY >= r.top + r.height / 2;
+      clearDragStyles();
+      doDrop(idx, after);
+    });
+    el.appendChild(div);
+  });
+
+  // Footer drop zone
+  const foot = document.createElement('div');
+  foot.className = 'active-drop-footer';
+  foot.innerHTML = _mCols.length === 0 ? '← Drag columns from the left panel' : '';
+  foot.addEventListener('dragover', e => { e.preventDefault(); foot.classList.add('over'); });
+  foot.addEventListener('dragleave', () => foot.classList.remove('over'));
+  foot.addEventListener('drop', e => {
+    e.preventDefault(); foot.classList.remove('over');
+    doDropEnd();
+  });
+  el.appendChild(foot);
+}
+
+// ── Drag helpers ───────────────────────────────────────────────────────────────
+
+let _drag = { src: null, idx: null, col: null };
+
+function clearDragStyles() {
+  document.querySelectorAll('.active-item').forEach(el =>
+    el.classList.remove('dov-top', 'dov-bottom', 'dragging'));
+  document.querySelectorAll('.active-drop-footer').forEach(el => el.classList.remove('over'));
+}
+
+// Toolbox panel accepts drops from active list (to remove columns)
+function toolboxDragOver(e) { if (_drag.src === 'active') { e.preventDefault(); } }
+function toolboxDrop(e) {
+  e.preventDefault();
+  if (_drag.src !== 'active') return;
+  _mCols.splice(_drag.idx, 1);
+  _drag = { src: null, idx: null, col: null };
+  renderToolbox(); renderActiveList(); markUnsaved();
+}
+
+function doDrop(targetIdx, after) {
+  if (_drag.src === 'toolbox') {
+    const ins = Math.min(after ? targetIdx + 1 : targetIdx, _mCols.length);
+    _mCols.splice(ins, 0, { col: _drag.col, label: _drag.col });
+  } else if (_drag.src === 'active') {
+    const src = _drag.idx;
+    if (src === targetIdx) { _drag = { src:null,idx:null,col:null }; return; }
+    const [moved] = _mCols.splice(src, 1);
+    let ins;
+    if (src < targetIdx) ins = after ? targetIdx - 1 + 1 : targetIdx - 1;
+    else                 ins = after ? targetIdx + 1     : targetIdx;
+    _mCols.splice(Math.max(0, Math.min(ins, _mCols.length)), 0, moved);
+  }
+  _drag = { src: null, idx: null, col: null };
+  renderToolbox(); renderActiveList(); markUnsaved();
+}
+
+function doDropEnd() {
+  if (_drag.src === 'toolbox') {
+    _mCols.push({ col: _drag.col, label: _drag.col });
+  } else if (_drag.src === 'active') {
+    const [moved] = _mCols.splice(_drag.idx, 1);
+    _mCols.push(moved);
+  }
+  _drag = { src: null, idx: null, col: null };
+  renderToolbox(); renderActiveList(); markUnsaved();
+}
+
+function removeCol(idx)      { _mCols.splice(idx, 1); renderToolbox(); renderActiveList(); markUnsaved(); }
+function updateLabel(idx, v) { _mCols[idx].label = v.trim() || (_mCols[idx].col === '__blank__' ? '' : _mCols[idx].col); markUnsaved(); }
+function addBlankCol() {
+  const n = _mCols.filter(c => c.col === '__blank__').length + 1;
+  _mCols.push({ col: '__blank__', label: `Column ${n}` });
+  renderToolbox(); renderActiveList(); markUnsaved();
+}
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── File / text input ──────────────────────────────────────────────────────────
+
+let _selectedFile = null;
+
+function onTextInput() { if (_selectedFile) clearFile(); updateState(); }
+
+function onFileSelected(input) {
+  const f = input.files[0];
+  if (!f) return;
+  _selectedFile = f;
+  document.getElementById('skuInput').value = '';
+  document.getElementById('fileChipName').textContent = f.name;
+  document.getElementById('fileChipSize').textContent = formatSize(f.size);
+  document.getElementById('dropHint').style.display   = 'none';
+  document.getElementById('fileChip').classList.add('visible');
+  document.getElementById('inputZone').classList.add('has-file');
+  updateState();
+}
+
+function clearFile() {
+  _selectedFile = null;
+  document.getElementById('fileInput').value = '';
+  document.getElementById('fileChip').classList.remove('visible');
+  document.getElementById('dropHint').style.display = '';
+  document.getElementById('inputZone').classList.remove('has-file');
+  updateState();
+}
+
+function updateState() {
+  const hasText = document.getElementById('skuInput').value.trim().length > 0;
+  const hasFile = !!_selectedFile;
+  document.getElementById('generateBtn').disabled = !(hasText || hasFile);
+  if (hasText) {
+    const n = parsePids(document.getElementById('skuInput').value).length;
+    document.getElementById('skuCount').innerHTML = n ? `<b>${n}</b> SKU${n!==1?'s':''}` : '';
+  } else if (hasFile) {
+    document.getElementById('skuCount').innerHTML = `<b>${_selectedFile.name}</b>`;
+  } else {
+    document.getElementById('skuCount').innerHTML = '';
+  }
+}
+
+function parsePids(t)    { return t.replace(/\n/g,',').split(',').map(s=>s.trim()).filter(Boolean); }
+function formatSize(b)   { if(b<1024)return b+' B'; if(b<1048576)return(b/1024).toFixed(1)+' KB'; return(b/1048576).toFixed(1)+' MB'; }
+
+const zone = document.getElementById('inputZone');
+zone.addEventListener('dragover',  e => { e.preventDefault(); zone.classList.add('drag-over'); });
+zone.addEventListener('dragleave', e => { if(!zone.contains(e.relatedTarget)) zone.classList.remove('drag-over'); });
+zone.addEventListener('drop', e => {
+  e.preventDefault(); zone.classList.remove('drag-over');
+  const f = e.dataTransfer.files[0];
+  if (f && f.name.match(/\.xlsx?$/i)) {
+    const dt = new DataTransfer(); dt.items.add(f);
+    document.getElementById('fileInput').files = dt.files;
+    onFileSelected(document.getElementById('fileInput'));
+  }
+});
+
+// ── Progress helpers ───────────────────────────────────────────────────────────
+
+const STEP_LABELS = [
+  { key:'auth',  label:'Auth' }, { key:'eox',  label:'EoX' },
+  { key:'info',  label:'Product Info' }, { key:'sw', label:'SW Suggestions' },
+  { key:'excel', label:'Excel' },
+];
+let _doneSteps = new Set();
+
+function initProgress() {
+  _doneSteps = new Set();
+  document.getElementById('stepsRow').innerHTML = STEP_LABELS.map(s =>
+    `<span class="step-chip" id="step_${s.key}">${s.label}</span>`
+  ).join('');
+  setProgress(0,'Starting…');
+  document.getElementById('progressCard').classList.add('visible');
+}
+
+function setProgress(pct, msg, completed = []) {
+  document.getElementById('progressFill').style.width = pct+'%';
+  document.getElementById('progressPct').textContent  = pct+'%';
+  document.getElementById('progressMsg').textContent  = msg;
+  const l = msg.toLowerCase();
+  if (l.includes('authenticat')) markStep('auth', true);
+  completed.forEach(key => {
+    const warn = key === 'sw' && l.includes('inactive');
+    markStep(key, true, warn);
+  });
+  if (l.includes('resolving replacement')) { markStep('eox', true); markStep('info', true); markStep('sw', true); }
+  if (l.includes('building') || l.includes('excel')) markStep('excel', pct >= 100);
+}
+
+function markStep(key, done, warn=false) {
+  const el = document.getElementById('step_'+key);
+  if (!el) return;
+  if (done) {
+    el.classList.remove('active');
+    el.classList.add(warn ? 'warn' : 'done');
+    _doneSteps.add(key);
+  } else if (!_doneSteps.has(key)) {
+    el.classList.add('active');
+  }
+}
+
+function hideProgress() { document.getElementById('progressCard').classList.remove('visible'); }
+
+function clearStatus() {
+  hideProgress();
+  document.getElementById('statusArea').querySelectorAll('.status-pill').forEach(el => el.remove());
+}
+
+function showPill(type, msg) {
+  const el = document.createElement('div');
+  el.className = `status-pill ${type}`;
+  el.textContent = msg;
+  document.getElementById('statusArea').appendChild(el);
+}
+
+// ── Generate ───────────────────────────────────────────────────────────────────
+
+let _activeES = null;
+
+function resetBtn() {
+  const btn = document.getElementById('generateBtn');
+  btn.disabled = false;
+  btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1v8M3.5 5.5l3.5 3.5 3.5-3.5M1 12h12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg> Generate Excel`;
+  updateState();
+}
+
+async function generate() {
+  const clientId     = document.getElementById('clientId').value.trim();
+  const clientSecret = document.getElementById('clientSecret').value.trim();
+  if (!clientId || !clientSecret) { clearStatus(); showPill('error','Client ID and Secret are required.'); return; }
+
+  const btn = document.getElementById('generateBtn');
+  btn.disabled = true;
+  btn.innerHTML = `<span class="spinner"></span> Starting…`;
+  clearStatus();
+  initProgress();
+  markStep('auth', false);
+
+  const fd = new FormData();
+  fd.append('client_id',     clientId);
+  fd.append('client_secret', clientSecret);
+  fd.append('columns',       JSON.stringify(getSelectedColumns()));
+  if (_selectedFile) fd.append('file', _selectedFile);
+  else               fd.append('skus', document.getElementById('skuInput').value.trim());
+
+  let job_id;
+  try {
+    const r = await fetch(_origin+'/api/start', { method:'POST', body:fd });
+    const d = await r.json();
+    if (!r.ok || d.error) { clearStatus(); showPill('error', d.error||'Failed to start'); resetBtn(); return; }
+    job_id = d.job_id;
+  } catch(e) { clearStatus(); showPill('error','Network error: '+e.message); resetBtn(); return; }
+
+  setProgress(5,'Authenticating…');
+  btn.innerHTML = `<span class="spinner"></span> Processing…`;
+
+  if (_activeES) _activeES.close();
+  const es = new EventSource(_origin+'/api/progress/'+job_id);
+  _activeES = es;
+
+  es.addEventListener('progress', e => {
+    const { msg, pct, completed } = JSON.parse(e.data);
+    setProgress(pct, msg, completed || []);
+  });
+
+  es.addEventListener('done', async e => {
+    es.close(); _activeES = null;
+    const { download_url, stats, label } = JSON.parse(e.data);
+    setProgress(95,'Downloading…');
+    try {
+      const r = await fetch(_origin+download_url);
+      if (!r.ok) throw new Error(r.statusText);
+      const disp     = r.headers.get('Content-Disposition') || '';
+      const nm       = disp.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+      const filename = nm ? nm[1].replace(/['"]/g,'') : 'eox_results.xlsx';
+      const blob = await r.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href = url; a.download = filename; a.click();
+      URL.revokeObjectURL(url);
+      setProgress(100,'Done!');
+      markStep('excel',true);
+      if (stats) {
+        addHistoryEntry({ id: uid(), ts: Date.now(), label: label || filename, stats });
+      }
+      setTimeout(() => { clearStatus(); showPill('success','✓  '+filename+' downloaded'); }, 800);
+    } catch(err) { clearStatus(); showPill('error','Download failed: '+err.message); }
+    finally { resetBtn(); }
+  });
+
+  es.addEventListener('error', e => {
+    es.close(); _activeES = null;
+    let msg = 'An error occurred.';
+    try { msg = JSON.parse(e.data).error; } catch {}
+    clearStatus(); showPill('error', msg); resetBtn();
+  });
+
+  es.onerror = () => {
+    if (es.readyState === EventSource.CLOSED) return;
+    es.close(); _activeES = null;
+    clearStatus(); showPill('error','Connection lost — please try again.'); resetBtn();
+  };
+}
+
+document.addEventListener('keydown', e => {
+  if ((e.metaKey||e.ctrlKey) && e.key==='Enter' && !document.getElementById('generateBtn').disabled)
+    generate();
+  if (e.key === 'Escape') {
+    closeModal();
+    closeInspector();
+    closeHistory();
+  }
+});
+
+// ── History ────────────────────────────────────────────────────────────────────
+
+const HISTORY_MAX = 100;
+
+const HIST_STATUS_STYLE = {
+  'End of Life': { color:'#ff8fbf', bg:'rgba(255,0,127,0.16)' },
+  'End of Sale': { color:'#ffc674', bg:'rgba(255,144,0,0.16)' },
+  'Active':      { color:'#7fffc7', bg:'rgba(0,255,174,0.14)' },
+  'Invalid SKU': { color:'rgba(255,255,255,0.50)', bg:'rgba(255,255,255,0.06)' },
+  'No Record':   { color:'rgba(255,255,255,0.50)', bg:'rgba(255,255,255,0.06)' },
+};
+
+function _syncHistory() {
+  fetch(_origin + '/api/history', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ history: _history }),
+  }).catch(() => {});
+}
+
+function addHistoryEntry(entry) {
+  _history.unshift(entry);
+  if (_history.length > HISTORY_MAX) _history.splice(HISTORY_MAX);
+  _syncHistory();
+  refreshHistBadge();
+}
+
+function refreshHistBadge() {
+  document.getElementById('histBadge').textContent = _history.length;
+}
+
+async function openHistory() {
+  document.getElementById('historyModal').style.display = 'flex';
+  try {
+    const r = await fetch(_origin + '/api/history');
+    if (r.ok) {
+      const d = await r.json();
+      if (Array.isArray(d.history)) _history = d.history;
+    }
+    if (!_history.length) {
+      const ls = JSON.parse(localStorage.getItem('eox_history_v1') || 'null');
+      if (Array.isArray(ls) && ls.length) {
+        _history = ls;
+        _syncHistory();
+        localStorage.removeItem('eox_history_v1');
+      }
+    }
+  } catch {}
+  renderHistory();
+  refreshHistBadge();
+}
+function closeHistory() { document.getElementById('historyModal').style.display = 'none'; }
+function histOverlayClick(e) { if (e.target === document.getElementById('historyModal')) closeHistory(); }
+
+function clearHistory() {
+  if (!confirm('Clear all history?')) return;
+  _history = [];
+  fetch(_origin + '/api/history', { method: 'DELETE' }).catch(() => {});
+  refreshHistBadge();
+  renderHistory();
+}
+
+function deleteHistEntry(id) {
+  _history = _history.filter(h => h.id !== id);
+  _syncHistory();
+  refreshHistBadge();
+  renderHistory();
+}
+
+function toggleHistPids(entryId, status) {
+  const el    = document.getElementById('histPids_' + entryId);
+  const entry = _history.find(h => h.id === entryId);
+  if (!el || !entry) return;
+  const pids = (entry.stats && entry.stats.eox_pids && entry.stats.eox_pids[status]) || [];
+  if (el.dataset.status === status && el.classList.contains('open')) {
+    el.classList.remove('open');
+    el.dataset.status = '';
+  } else {
+    const s = HIST_STATUS_STYLE[status] || { color: '#fff', bg: 'rgba(255,255,255,0.06)' };
+    el.innerHTML = pids.map(p =>
+      `<span class="hist-pid-chip" style="color:${s.color};background:${s.bg}">${esc(p)}</span>`
+    ).join('');
+    el.dataset.status = status;
+    el.classList.add('open');
+  }
+}
+
+function toggleHistCols(id) {
+  const el  = document.getElementById('histCols_' + id);
+  const btn = document.getElementById('histColsBtn_' + id);
+  const open = el.classList.toggle('open');
+  btn.textContent = open ? 'Hide column coverage ▲' : 'Show column coverage ▼';
+}
+
+
+function renderHistory() {
+  const h = _history;
+  const el = document.getElementById('histList');
+  if (!h.length) {
+    el.innerHTML = '<div class="hist-empty">No requests recorded yet.<br>Generate your first report to see history here.</div>';
+    return;
+  }
+  el.innerHTML = h.map(entry => renderHistEntry(entry)).join('');
+}
+
+function renderHistEntry(e) {
+  const ts   = new Date(e.ts);
+  const date = ts.toLocaleDateString(undefined, {day:'2-digit', month:'short', year:'numeric'});
+  const time = ts.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+  const st   = e.stats || {};
+  const total = st.total || 0;
+
+  // EoX badges
+  const eox     = st.eox     || {};
+  const eoxPids = st.eox_pids || {};
+  const badges = Object.entries(eox).map(([status, count]) => {
+    const s = HIST_STATUS_STYLE[status] || {color:'rgba(255,255,255,0.5)', bg:'rgba(255,255,255,0.06)'};
+    const hasPids = (eoxPids[status] || []).length > 0;
+    return `<span class="hist-badge${hasPids ? ' hist-badge-clickable' : ''}"
+      style="color:${s.color};background:${s.bg}"
+      ${hasPids ? `onclick="toggleHistPids('${e.id}','${esc(status)}')"` : ''}
+      title="${hasPids ? 'Click to see SKUs' : ''}"
+    >${esc(status)}: ${count}${hasPids ? ' ▾' : ''}</span>`;
+  }).join('');
+
+  // EoX stacked bar
+  const EOX_BAR_COLORS = {
+    'End of Life': '#ff4d8f',
+    'End of Sale': '#ffaa44',
+    'Active':      '#00e89a',
+    'Invalid SKU': 'rgba(255,255,255,0.30)',
+    'No Record':   'rgba(255,255,255,0.25)',
+  };
+  const EOX_ORDER = ['Active', 'End of Sale', 'End of Life', 'Invalid SKU', 'No Record'];
+  const eoxSegs = total ? EOX_ORDER
+    .filter(s => eox[s])
+    .map(s => {
+      const pct = (eox[s] / total * 100).toFixed(1);
+      return `<div class="hist-eox-bar-seg" style="width:${pct}%;background:${EOX_BAR_COLORS[s] || 'rgba(255,255,255,0.2)'}" title="${s}: ${eox[s]}"></div>`;
+    }).join('') : '';
+  const eoxBar = `<div class="hist-cov-item">
+    <span class="hist-cov-label">EoX Status</span>
+    <div class="hist-eox-bar">${eoxSegs}</div>
+    <span class="hist-cov-pct">${total}</span>
+  </div>`;
+
+  // Coverage bars
+  const bars = [
+    { label: 'Product Info',   count: st.product_info || 0, color: '#0A60FF' },
+    { label: 'SW Suggestions', count: st.sw || 0,           color: '#02C8FF' },
+  ].map(({ label, count, color }) => {
+    const pct = total ? Math.round(count / total * 100) : 0;
+    return `<div class="hist-cov-item">
+      <span class="hist-cov-label">${label}</span>
+      <div class="hist-cov-bar"><div class="hist-cov-fill" style="width:${pct}%;background:${color}"></div></div>
+      <span class="hist-cov-pct">${count}/${total}</span>
+    </div>`;
+  }).join('');
+
+  // Recommended hardware count + repair button
+  const replCount = Object.keys(st.replacements || {}).length;
+  const replHtml  = `<span class="hist-repl-count">
+    Recommended HW: <b id="replCount_${e.id}">${replCount || '—'}</b>
+    <button class="hist-repl-repair" title="Repair from Excel file" onclick="event.stopPropagation()">
+      ⟳ repair
+      <input type="file" accept=".xlsx,.xlsm" onchange="repairHistRepl('${e.id}', this)" />
+    </button>
+  </span>`;
+
+  // Per-column grid
+  const cols = st.cols || {};
+  const colGrid = Object.entries(cols).map(([col, count]) => {
+    const pct = total ? Math.round(count / total * 100) : 0;
+    return `<div class="hist-col-item"><span>${esc(col)}</span><b>${pct}%</b></div>`;
+  }).join('');
+
+  return `<div class="hist-entry">
+    <div class="hist-entry-top">
+      <div style="flex:1;min-width:0">
+        <div class="hist-entry-label">${esc(e.label)}</div>
+        <div class="hist-entry-ts">${date} · ${time}</div>
+      </div>
+      <div class="hist-entry-total">${total}<div class="hist-entry-total-sub">SKUs</div></div>
+      <button class="hist-entry-delete" onclick="deleteHistEntry('${e.id}')" title="Delete this entry">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+          <path d="M2 3h8M5 3V2h2v1M4.5 3v6M7.5 3v6M3 3l.5 7h5L9 3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+    </div>
+    <div class="hist-eox-row">${badges || '<span style="font-size:11px;color:var(--ter)">No EoX data</span>'}</div>
+    <div class="hist-pid-list" id="histPids_${e.id}"></div>
+    <div class="hist-coverage-row">${eoxBar}${bars}</div>
+    ${replHtml}
+    ${colGrid ? `
+    <div>
+      <span class="hist-cols-toggle" id="histColsBtn_${e.id}" onclick="toggleHistCols('${e.id}')">Show column coverage ▼</span>
+      <div class="hist-cols-grid" id="histCols_${e.id}">${colGrid}</div>
+    </div>` : ''}
+  </div>`;
+}
+
+// ── Credentials toggle ─────────────────────────────────────────────────────────
+
+function toggleCreds() {
+  const body    = document.getElementById('credsBody');
+  const chevron = document.getElementById('credsChevron');
+  const open    = body.classList.contains('open');
+  body.classList.toggle('open', !open);
+  chevron.classList.toggle('open', !open);
+  updateCredsSummary();
+}
+
+function updateCredsSummary() {
+  const id  = document.getElementById('clientId').value.trim();
+  const sec = document.getElementById('clientSecret').value.trim();
+  const el  = document.getElementById('credsSummary');
+  if (!el) return;
+  if (id && sec) {
+    el.textContent = id.substring(0, 8) + '… / ••••••';
+    el.style.color = '';
+  } else {
+    el.textContent = 'Not configured';
+    el.style.color = '#ff8fbf';
+  }
+}
+
+function initCredsToggle() {
+  const id  = document.getElementById('clientId').value.trim();
+  const sec = document.getElementById('clientSecret').value.trim();
+  updateCredsSummary();
+  if (!(id && sec)) {
+    document.getElementById('credsBody').classList.add('open');
+    document.getElementById('credsChevron').classList.add('open');
+  }
+}
+
+// ── Server-side persistence init ──────────────────────────────────────────────
+
+async function initServerData() {
+  try {
+    const [rp, rh] = await Promise.all([
+      fetch(_origin + '/api/presets'),
+      fetch(_origin + '/api/history'),
+    ]);
+
+    if (rp.ok) {
+      const d = await rp.json();
+      if (Array.isArray(d.presets) && d.presets.length) {
+        _presets = d.presets;
+        _activePresetId = d.active || 'default';
+      } else {
+        try {
+          const ls = JSON.parse(localStorage.getItem('eox_presets_v1'));
+          if (Array.isArray(ls) && ls.length) {
+            _presets = ls;
+            _activePresetId = localStorage.getItem('eox_active_preset') || 'default';
+            localStorage.removeItem('eox_presets_v1');
+            localStorage.removeItem('eox_active_preset');
+            _syncPresets();
+          }
+        } catch {}
+      }
+    }
+
+    if (rh.ok) {
+      const d = await rh.json();
+      if (Array.isArray(d.history) && d.history.length) {
+        _history = d.history;
+      } else {
+        try {
+          const ls = JSON.parse(localStorage.getItem('eox_history_v1'));
+          if (Array.isArray(ls) && ls.length) {
+            _history = ls;
+            localStorage.removeItem('eox_history_v1');
+            _syncHistory();
+          }
+        } catch {}
+      }
+    }
+  } catch {}
+
+  refreshSidebarChip();
+  refreshHistBadge();
+  initCredsToggle();
+}
+
+initServerData();
+
+// ── SKU Inspector ──────────────────────────────────────────────────────────────
+
+function openInspector() {
+  document.getElementById('inspectorResults').style.display = 'none';
+  document.getElementById('inspectorModal').style.display = 'flex';
+  document.getElementById('inspectorSku').focus();
+}
+function closeInspector() {
+  document.getElementById('inspectorModal').style.display = 'none';
+}
+function inspectorOverlayClick(e) {
+  if (e.target === document.getElementById('inspectorModal')) closeInspector();
+}
+
+const _rawState = { eox: false, info: false, sw: false };
+
+function toggleRaw(key) {
+  _rawState[key] = !_rawState[key];
+  const blockId = { eox: 'rawBlockEox', info: 'rawBlockInfo', sw: 'rawBlockSw' }[key];
+  const btnId   = { eox: 'rawBtnEox',   info: 'rawBtnInfo',   sw: 'rawBtnSw'  }[key];
+  document.getElementById(blockId).classList.toggle('open', _rawState[key]);
+  document.getElementById(btnId).classList.toggle('active', _rawState[key]);
+}
+
+function eoxValClass(col, val) {
+  if (!val) return 'empty';
+  if (col !== 'EoX Status') return '';
+  return { 'End of Life': 'eox-eol', 'End of Sale': 'eox-eos',
+           'Active': 'eox-act', 'Invalid SKU': 'eox-inv', 'No Record': 'eox-nor' }[val] || '';
+}
+
+async function inspectSku() {
+  const sku = document.getElementById('inspectorSku').value.trim();
+  if (!sku) return;
+
+  const clientId     = document.getElementById('clientId').value.trim();
+  const clientSecret = document.getElementById('clientSecret').value.trim();
+  if (!clientId || !clientSecret) {
+    alert('Enter your API credentials first.');
+    return;
+  }
+
+  const btn = document.getElementById('inspectBtn');
+  btn.disabled = true;
+  btn.innerHTML = `<span class="spinner" style="width:12px;height:12px;border-width:1.5px"></span> Inspecting…`;
+
+  document.getElementById('inspectorResults').style.display = 'none';
+
+  const fd = new FormData();
+  fd.append('client_id',     clientId);
+  fd.append('client_secret', clientSecret);
+  fd.append('sku',           sku);
+
+  try {
+    const r = await fetch(_origin + '/api/inspect', { method: 'POST', body: fd });
+    const d = await r.json();
+    if (!r.ok || d.error) { alert(d.error || 'Inspection failed'); return; }
+    renderInspector(d);
+  } catch(e) {
+    alert('Network error: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 13 13" fill="none"><circle cx="5.5" cy="5.5" r="4" stroke="currentColor" stroke-width="1.5"/><path d="M9 9l2.5 2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg> Inspect`;
+  }
+}
+
+function renderInspector(d) {
+  // Column values grid
+  const grid = document.getElementById('inspColGrid');
+  grid.innerHTML = Object.entries(d.columns).map(([col, val]) => {
+    const cls  = eoxValClass(col, val);
+    const disp = val ? esc(val) : '—';
+    return `<div class="insp-row">
+      <div class="insp-key">${esc(col)}</div>
+      <div class="insp-val ${cls}">${disp}</div>
+    </div>`;
+  }).join('');
+
+  // Raw blocks
+  document.getElementById('rawBlockEox').textContent  = JSON.stringify(d.raw.eox,          null, 2);
+  document.getElementById('rawBlockInfo').textContent = JSON.stringify(d.raw.product_info,  null, 2);
+  document.getElementById('rawBlockSw').textContent   = JSON.stringify(d.raw.sw_suggestion, null, 2);
+
+  // Reset raw toggles
+  ['eox','info','sw'].forEach(k => {
+    _rawState[k] = false;
+    const blockId = { eox:'rawBlockEox', info:'rawBlockInfo', sw:'rawBlockSw' }[k];
+    const btnId   = { eox:'rawBtnEox',   info:'rawBtnInfo',   sw:'rawBtnSw'  }[k];
+    document.getElementById(blockId).classList.remove('open');
+    document.getElementById(btnId).classList.remove('active');
+  });
+
+  document.getElementById('inspectorResults').style.display = '';
+}
+
+// ── History repair ─────────────────────────────────────────────────────────────
+
+async function repairHistRepl(entryId, input) {
+  const file = input.files[0];
+  if (!file) return;
+  const btn = input.closest('.hist-repl-repair');
+  btn.textContent = '⟳ …';
+  const fd = new FormData();
+  fd.append('file', file);
+  try {
+    const r = await fetch(_origin + '/api/history/' + entryId + '/repair', { method: 'POST', body: fd });
+    const d = await r.json();
+    if (!r.ok || d.error) {
+      alert(d.error || 'Repair failed');
+      btn.innerHTML = '⟳ repair<input type="file" accept=".xlsx,.xlsm" onchange="repairHistRepl(\'' + entryId + '\', this)" />';
+      return;
+    }
+    // Patch local history and update the displayed count
+    const entry = _history.find(e => e.id === entryId);
+    // Reload from server to get the fresh replacements dict
+    const rh = await fetch(_origin + '/api/history');
+    if (rh.ok) {
+      const dh = await rh.json();
+      if (Array.isArray(dh.history)) _history = dh.history;
+    }
+    const countEl = document.getElementById('replCount_' + entryId);
+    if (countEl) countEl.textContent = d.count;
+    btn.innerHTML = '✓ done<input type="file" accept=".xlsx,.xlsm" onchange="repairHistRepl(\'' + entryId + '\', this)" />';
+    setTimeout(() => {
+      btn.innerHTML = '⟳ repair<input type="file" accept=".xlsx,.xlsm" onchange="repairHistRepl(\'' + entryId + '\', this)" />';
+    }, 2000);
+  } catch (err) {
+    alert('Network error: ' + err.message);
+    btn.innerHTML = '⟳ repair<input type="file" accept=".xlsx,.xlsm" onchange="repairHistRepl(\'' + entryId + '\', this)" />';
+  }
+}
+
+// ── Compare module ─────────────────────────────────────────────────────────────
+
+const _cmpFiles = { A: null, B: null };
+
+function openCompare() { document.getElementById('compareModal').style.display = 'flex'; }
+function closeCompare() { document.getElementById('compareModal').style.display = 'none'; }
+function cmpOverlayClick(e) { if (e.target === document.getElementById('compareModal')) closeCompare(); }
+
+function cmpDragOver(e, side) {
+  e.preventDefault();
+  document.getElementById('cmpDrop' + side).classList.add('drag-over');
+}
+function cmpDragLeave(e, side) {
+  document.getElementById('cmpDrop' + side).classList.remove('drag-over');
+}
+function cmpDrop(e, side) {
+  e.preventDefault();
+  document.getElementById('cmpDrop' + side).classList.remove('drag-over');
+  const f = e.dataTransfer.files[0];
+  if (f) _setCmpFile(f, side);
+}
+function cmpFileSelected(input, side) {
+  const f = input.files[0];
+  if (f) _setCmpFile(f, side);
+}
+function _setCmpFile(f, side) {
+  _cmpFiles[side] = f;
+  const drop = document.getElementById('cmpDrop' + side);
+  drop.classList.add('has-file');
+  document.getElementById('cmpBody' + side).innerHTML =
+    `<div class="cmp-dz-filename">${esc(f.name)}</div>
+     <div class="cmp-dz-hint">${(f.size / 1024).toFixed(0)} KB · click to change</div>`;
+  document.getElementById('cmpBtn').disabled = !(_cmpFiles.A && _cmpFiles.B);
+}
+
+async function runCompare() {
+  if (!_cmpFiles.A || !_cmpFiles.B) return;
+  const btn = document.getElementById('cmpBtn');
+  btn.disabled = true;
+  btn.innerHTML = `<span class="spinner" style="width:12px;height:12px;border-width:1.5px"></span> Comparing…`;
+  document.getElementById('cmpResults').innerHTML = '';
+
+  const fd = new FormData();
+  fd.append('file_a', _cmpFiles.A);
+  fd.append('file_b', _cmpFiles.B);
+
+  try {
+    const r = await fetch(_origin + '/api/compare', { method: 'POST', body: fd });
+    const d = await r.json();
+    if (!r.ok || d.error) {
+      document.getElementById('cmpResults').innerHTML =
+        `<div class="cmp-placeholder" style="color:#ff8fbf">${esc(d.error || 'Compare failed')}</div>`;
+    } else {
+      _renderCompare(d);
+    }
+  } catch (err) {
+    document.getElementById('cmpResults').innerHTML =
+      `<div class="cmp-placeholder" style="color:#ff8fbf">Network error: ${esc(err.message)}</div>`;
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+      <path d="M1 2h4.5v9H1zM7.5 2H12v9H7.5z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+      <path d="M5.5 6.5H7.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+    </svg> Compare`;
+  }
+}
+
+function _cmpVal(v, cls) {
+  return v ? `<span class="${cls}">${esc(v)}</span>` : `<span class="cmp-dash">—</span>`;
+}
+
+function _renderCompare({ added, removed, changed, unchanged, cols }) {
+  const el = document.getElementById('cmpResults');
+
+  // ── Summary pills ──────────────────────────────────────────────────
+  let html = `<div class="cmp-summary">
+    <span class="cmp-pill cmp-pill-changed" onclick="document.getElementById('cmpSecChanged').scrollIntoView({behavior:'smooth'})">~ ${changed.length} changed</span>
+    <span class="cmp-pill cmp-pill-added"   onclick="document.getElementById('cmpSecAdded').scrollIntoView({behavior:'smooth'})">+ ${added.length} added</span>
+    <span class="cmp-pill cmp-pill-removed" onclick="document.getElementById('cmpSecRemoved').scrollIntoView({behavior:'smooth'})">− ${removed.length} removed</span>
+    <span class="cmp-pill cmp-pill-same">= ${unchanged} unchanged</span>
+  </div>`;
+
+  if (!changed.length && !added.length && !removed.length) {
+    html += `<div class="cmp-placeholder">✓ No differences — both files are identical.</div>`;
+    el.innerHTML = html;
+    return;
+  }
+
+  // ── Changed ────────────────────────────────────────────────────────
+  html += `<div class="cmp-sec-title" id="cmpSecChanged">Changed &nbsp;${changed.length}</div>`;
+  if (changed.length) {
+    html += `<div class="cmp-table-wrap"><table class="cmp-table">
+      <thead><tr>
+        <th>Product ID</th><th>Column</th><th>Before (A)</th><th>After (B)</th>
+      </tr></thead><tbody>`;
+    for (const { pid, changes } of changed) {
+      changes.forEach((c, i) => {
+        const grpClass = i === 0 ? ' class="cmp-row-grp"' : '';
+        html += `<tr${grpClass}>
+          ${i === 0 ? `<td class="cmp-pid" rowspan="${changes.length}">${esc(pid)}</td>` : ''}
+          <td class="cmp-col">${esc(c.col)}</td>
+          <td>${_cmpVal(c.old, 'cmp-old')}</td>
+          <td>${_cmpVal(c.new, 'cmp-new')}</td>
+        </tr>`;
+      });
+    }
+    html += `</tbody></table></div>`;
+  } else {
+    html += `<div class="cmp-sec-empty">No changed rows.</div>`;
+  }
+
+  // ── Added ──────────────────────────────────────────────────────────
+  html += `<div class="cmp-sec-title" id="cmpSecAdded">Added &nbsp;${added.length}</div>`;
+  if (added.length) {
+    const showCols = cols.slice(0, 8);
+    html += `<div class="cmp-table-wrap"><table class="cmp-table">
+      <thead><tr>
+        <th>Product ID</th>${showCols.map(c => `<th>${esc(c)}</th>`).join('')}
+      </tr></thead><tbody>`;
+    for (const { pid, values } of added) {
+      html += `<tr class="cmp-row-added">
+        <td class="cmp-pid cmp-val-added">${esc(pid)}</td>
+        ${showCols.map(c => `<td class="cmp-val-added">${esc(values[c] || '')}</td>`).join('')}
+      </tr>`;
+    }
+    html += `</tbody></table></div>`;
+  } else {
+    html += `<div class="cmp-sec-empty">No added rows.</div>`;
+  }
+
+  // ── Removed ────────────────────────────────────────────────────────
+  html += `<div class="cmp-sec-title" id="cmpSecRemoved">Removed &nbsp;${removed.length}</div>`;
+  if (removed.length) {
+    const showCols = cols.slice(0, 8);
+    html += `<div class="cmp-table-wrap"><table class="cmp-table">
+      <thead><tr>
+        <th>Product ID</th>${showCols.map(c => `<th>${esc(c)}</th>`).join('')}
+      </tr></thead><tbody>`;
+    for (const { pid, values } of removed) {
+      html += `<tr class="cmp-row-removed">
+        <td class="cmp-pid cmp-val-removed">${esc(pid)}</td>
+        ${showCols.map(c => `<td class="cmp-val-removed">${esc(values[c] || '')}</td>`).join('')}
+      </tr>`;
+    }
+    html += `</tbody></table></div>`;
+  } else {
+    html += `<div class="cmp-sec-empty">No removed rows.</div>`;
+  }
+
+  el.innerHTML = html;
+}
+</script>
+</body>
+</html>

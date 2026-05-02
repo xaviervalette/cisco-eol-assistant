@@ -1,0 +1,67 @@
+{
+  "presets": [
+    {
+      "id": "default",
+      "name": "SAFRAN",
+      "cols": [
+        {
+          "col": "Product Description",
+          "label": "Product Description"
+        },
+        {
+          "col": "Product Name",
+          "label": "Product Name"
+        },
+        {
+          "col": "__blank__",
+          "label": "PID Simpified"
+        },
+        {
+          "col": "__blank__",
+          "label": "Description Simplified"
+        },
+        {
+          "col": "Suggested Release",
+          "label": "SW reco or last"
+        },
+        {
+          "col": "SW Release Date",
+          "label": "SW release date"
+        },
+        {
+          "col": "__blank__",
+          "label": "eovss sw"
+        },
+        {
+          "col": "__blank__",
+          "label": "ldos sw"
+        },
+        {
+          "col": "End of Vuln Support",
+          "label": "EOVSS HW2"
+        },
+        {
+          "col": "Last Date of Support",
+          "label": "EOL HW"
+        },
+        {
+          "col": "Replacement PID",
+          "label": "recommeded HW"
+        },
+        {
+          "col": "__blank__",
+          "label": "Version 1 1:1, puis faire Version 2 rationnalisé"
+        },
+        {
+          "col": "__blank__",
+          "label": "New hardware Cisco Live"
+        },
+        {
+          "col": "EoX Status",
+          "label": "EoX Status"
+        }
+      ]
+    }
+  ],
+  "active": "default"
+}
