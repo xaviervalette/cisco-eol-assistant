@@ -33,8 +33,11 @@ _job_lock = threading.Lock()
 
 # Persistent data store (server-side JSON files)
 _DATA_DIR  = os.path.join(os.path.dirname(__file__), "data")
-_PRESETS_F = os.path.join(_DATA_DIR, "presets.json")
-_HISTORY_F = os.path.join(_DATA_DIR, "history.json")
+_PRESETS_F   = os.path.join(_DATA_DIR, "presets.json")
+_HISTORY_F   = os.path.join(_DATA_DIR, "history.json")
+_OVERRIDES_F = os.path.join(_DATA_DIR, "overrides.json")
+_DOWNLOADS_DIR = os.path.join(_DATA_DIR, "downloads")
+os.makedirs(_DOWNLOADS_DIR, exist_ok=True)
 _data_lock = threading.Lock()
 
 
@@ -366,6 +369,102 @@ def _sw_suffix_fallback(token: str, pids: list[str], info_map: dict, sw_map: dic
     return resolved
 
 
+# Maps softwareType values returned by the SW Suggestion API to the OSType
+# identifiers expected by EOXBySWReleaseString.
+_SW_TYPE_TO_OSTYPE: dict[str, str] = {
+    "IOS XE SOFTWARE":  "IOS-XE",
+    "IOS-XE SOFTWARE":  "IOS-XE",
+    "IOS XE":           "IOS-XE",
+    "IOS-XE":           "IOS-XE",
+    "IOS XR SOFTWARE":  "IOS XR",
+    "IOS XR":           "IOS XR",
+    "IOS SOFTWARE":     "IOS",
+    "IOS":              "IOS",
+    "NX-OS SOFTWARE":   "NX-OS",
+    "NX-OS":            "NX-OS",
+    "ASA SOFTWARE":     "ASA",
+    "ASA":              "ASA",
+    "WLC SOFTWARE":     "WLC",
+    "WLC":              "WLC",
+    "SAN-OS SOFTWARE":  "SAN-OS",
+    "SAN-OS":           "SAN-OS",
+}
+
+
+# OSTypes that use dot notation (e.g. "17.15.5") — work as-is with the EoX API.
+# All other types use classic IOS parenthesis notation (e.g. "15.2(7)E13").
+_OSTYPE_DOT_NOTATION = {"IOS-XE", "IOS XR", "NX-OS"}
+
+
+def _to_eox_release_fmt(release: str, ostype: str) -> str:
+    """Convert SW Suggestion releaseFormat1 to the format EOXBySWReleaseString expects.
+
+    IOS-XE / IOS XR / NX-OS return dot notation (17.15.5) which the EoX API accepts.
+    Classic IOS uses parenthesis notation but SW Suggestion returns dots/hyphens:
+      15.2.7E13   →  15.2(7)E13
+      15.5.1-SY17 →  15.5(1)SY17   (hyphen before train is stripped)
+      12.4.15T    →  12.4(15)T
+    """
+    if ostype in _OSTYPE_DOT_NOTATION:
+        return release
+    # Major.Minor.Patch[-]Train  →  Major.Minor(Patch)Train
+    m = re.match(r'^(\d+\.\d+)\.(\d+)-?([A-Za-z].*)?$', release)
+    if m:
+        return f"{m.group(1)}({m.group(2)}){m.group(3) or ''}"
+    return release
+
+
+def enrich_sw_eox(token: str, sw_map: dict, on_progress=None):
+    """Enrich sw_map entries with EoVSS and LDoS from EOXBySWReleaseString.
+
+    Collects unique (releaseFormat1, softwareType) pairs, normalises softwareType
+    to the OSType identifier the EoX API expects (e.g. "IOS XE Software" → "IOS-XE"),
+    queries once per unique pair, then injects _sw_eovss and _sw_ldos into each
+    matching sw_map entry. Skips entries where sw_map value is None (no SW subscription).
+    """
+    headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
+
+    # Group PIDs by (release, normalised_ostype) — query each pair only once
+    pair_to_pids: dict[tuple[str, str], list[str]] = {}
+    for pid, rec in sw_map.items():
+        if not rec:
+            continue
+        release = (rec.get("releaseFormat1") or "").strip()
+        raw_os  = (rec.get("softwareType")   or "").strip()
+        ostype  = _SW_TYPE_TO_OSTYPE.get(raw_os.upper(), raw_os)
+        if not release:
+            continue
+        pair_to_pids.setdefault((release, ostype), []).append(pid)
+
+    pairs = list(pair_to_pids.keys())
+    cache: dict[tuple[str, str], dict] = {}
+
+    for idx, (release, ostype) in enumerate(pairs):
+        eox_release = _to_eox_release_fmt(release, ostype)
+        input1 = f"{eox_release},{ostype}" if ostype else eox_release
+        r = _get_with_retry(
+            f"{EOX_BASE}/EOXBySWReleaseString/1/",
+            headers,
+            params={"input1": input1, "responseencoding": "json"},
+        )
+        if r and r.ok:
+            for rec in r.json().get("EOXRecord", []):
+                if rec.get("EOXError"):
+                    continue
+                eovss = rec.get("EndOfSecurityVulSupportDate", {}).get("value") or ""
+                ldos  = rec.get("LastDateOfSupport", {}).get("value") or ""
+                if eovss or ldos:
+                    cache[(release, ostype)] = {"_sw_eovss": eovss, "_sw_ldos": ldos}
+                    break
+        if on_progress:
+            on_progress(idx + 1, len(pairs))
+
+    for (release, ostype), extra in cache.items():
+        for pid in pair_to_pids[(release, ostype)]:
+            if sw_map.get(pid):
+                sw_map[pid].update(extra)
+
+
 # ── Text helpers ───────────────────────────────────────────────────────────────
 
 def _spaced(s: str) -> str:
@@ -400,9 +499,7 @@ def _eox_status(record: dict) -> str:
             return None
     if (t := ts("LastDateOfSupport")) and t < now:
         return "End of Life"
-    if (t := ts("EndOfSaleDate")) and t < now:
-        return "End of Sale"
-    return "Active"
+    return "End of Sale"
 
 
 def _resolved_status(eox_rec: dict, info_rec: dict) -> str:
@@ -521,15 +618,18 @@ ALL_COLUMNS: list[tuple[str, any]] = [
     ("EoX Status",            lambda p, e, i, s: _resolved_status(e, i)),
     ("End of Sale",           lambda p, e, i, s: _date_val(e, "EndOfSaleDate")                                         if e else ""),
     ("End of SW Maintenance", lambda p, e, i, s: _date_val(e, "EndOfSWMaintenanceReleases")                            if e else ""),
-    ("Last Date of Support",  lambda p, e, i, s: _date_val(e, "LastDateOfSupport")                                     if e else ""),
-    ("End of Vuln Support",   lambda p, e, i, s: _date_val(e, "EndOfSecurityVulSupportDate")                           if e else ""),
-    ("Replacement PID",       lambda p, e, i, s: (e.get("_final_replacement") or e.get("EOXMigrationDetails", {}).get("MigrationProductId") or e.get("EOXMigrationDetails", {}).get("MigrationProductName") or "") if e else ""),
+    ("Last Date of Support",  lambda p, e, i, s: "N/A" if _resolved_status(e, i) == "Active" else (_date_val(e, "LastDateOfSupport")                                                                                                                    if e else "")),
+    ("End of Vuln Support",   lambda p, e, i, s: "N/A" if _resolved_status(e, i) == "Active" else (_date_val(e, "EndOfSecurityVulSupportDate")                                                                                                           if e else "")),
+    ("Replacement PID",       lambda p, e, i, s: "N/A" if _resolved_status(e, i) == "Active" else ((e.get("_final_replacement") or e.get("EOXMigrationDetails", {}).get("MigrationProductId") or e.get("EOXMigrationDetails", {}).get("MigrationProductName") or "") if e else "")),
     ("Bulletin URL",          lambda p, e, i, s: (e.get("LinkToProductBulletinURL") or "")                             if e else ""),
     ("SW Type",               lambda p, e, i, s: (s.get("softwareType") or "")                                         if s else ""),
     ("Suggested Release",     lambda p, e, i, s: (s.get("releaseFormat1") or "")                                       if s else ""),
     ("Train",                 lambda p, e, i, s: (s.get("relDispName") or "")                                          if s else ""),
     ("Lifecycle",             lambda p, e, i, s: (s.get("releaseLifeCycle") or "")                                     if s else ""),
     ("SW Release Date",       lambda p, e, i, s: (s.get("releaseDate") or "")                                          if s else ""),
+    ("SW End of Vuln Support",lambda p, e, i, s: (s.get("_sw_eovss") or "")                                            if s else ""),
+    ("SW Last Date of Support",lambda p, e, i, s: (s.get("_sw_ldos") or "")                                            if s else ""),
+    ("Manual Hardware Recommendation", lambda p, e, i, s: ""),  # placeholder — replaced in build_excel with mappings closure
 ]
 
 _ALL_COLUMNS_MAP  = {name: fn for name, fn in ALL_COLUMNS}
@@ -542,6 +642,8 @@ _COL_WIDTHS = {
     "Replacement PID": 22, "Bulletin URL": 50, "End of Vuln Support": 20,
     "SW Type": 20, "Suggested Release": 18, "Train": 22,
     "Lifecycle": 12, "SW Release Date": 16,
+    "SW End of Vuln Support": 22, "SW Last Date of Support": 24,
+    "Manual Hardware Recommendation": 28,
 }
 
 _CENTER_COLS = {
@@ -590,20 +692,45 @@ def _data_cell(ws, row, col, value, center=False):
 
 def build_excel(pids: list[str], eox: dict, info: dict, sw: dict | None,
                 source_wb: openpyxl.Workbook | None = None,
-                col_spec: list[tuple[str, str]] | None = None) -> io.BytesIO:
+                col_spec: list[tuple[str, str]] | None = None,
+                mappings: dict | None = None) -> io.BytesIO:
     """
     col_spec: ordered list of (canonical_name, display_label) or None for all defaults.
     canonical_name is used for data extraction and styling; display_label for headers.
+    mappings: optional dict[str, str] of upper-cased base PID → override PID for
+              the "Manual Hardware Recommendation" column.
     """
+    _mappings: dict = mappings or {}
+
+    def _manual_hw_fn(p, e, i, s):
+        status = _resolved_status(e, i)
+        if status == "Active":
+            base = p
+        else:
+            base = ((e.get("_final_replacement") or
+                     e.get("EOXMigrationDetails", {}).get("MigrationProductId") or
+                     e.get("EOXMigrationDetails", {}).get("MigrationProductName") or
+                     "") if e else "")
+        if not base:
+            return ""
+        return _mappings.get(base.upper(), base)
+
     if col_spec:
         COLUMNS = []
         for cn, lbl in col_spec:
             if cn == "__blank__":
                 COLUMNS.append(("__blank__", lbl, lambda p, e, i, s: ""))
+            elif cn == "Manual Hardware Recommendation":
+                COLUMNS.append((cn, lbl, _manual_hw_fn))
             elif cn in _ALL_COLUMNS_MAP:
                 COLUMNS.append((cn, lbl, _ALL_COLUMNS_MAP[cn]))
     else:
-        COLUMNS = [(cn, cn, fn) for cn, fn in ALL_COLUMNS]
+        COLUMNS = []
+        for cn, fn in ALL_COLUMNS:
+            if cn == "Manual Hardware Recommendation":
+                COLUMNS.append((cn, cn, _manual_hw_fn))
+            else:
+                COLUMNS.append((cn, cn, fn))
 
     if source_wb:
         wb = source_wb
@@ -778,7 +905,8 @@ def _emit(job_id: str, event: str, data: str):
 
 
 def run_job(job_id: str, client_id: str, client_secret: str,
-            pids: list[str], source_wb, col_spec, download_name: str):
+            pids: list[str], source_wb, col_spec, download_name: str,
+            hw_mappings: dict | None = None):
     try:
         _emit(job_id, "progress", _json.dumps({"msg": "Authenticating…", "pct": 5}))
 
@@ -881,6 +1009,30 @@ def run_job(job_id: str, client_id: str, client_secret: str,
                     "completed": list(_api_complete),
                 }))
 
+        if sw_map:
+            _sw_eox_pairs = sum(
+                1 for rec in sw_map.values()
+                if rec and (rec.get("releaseFormat1") or "").strip()
+            )
+            _sw_eox_unique = len({
+                (rec.get("releaseFormat1","").strip(), rec.get("softwareType","").strip())
+                for rec in sw_map.values() if rec and rec.get("releaseFormat1","").strip()
+            })
+            if _sw_eox_unique:
+                _emit(job_id, "progress", _json.dumps({
+                    "msg": f"Fetching SW EoX dates… 0/{_sw_eox_unique}",
+                    "pct": 89,
+                    "completed": list(_api_complete),
+                }))
+                def sw_eox_reporter(done: int, total: int):
+                    pct = 89 + int(done / max(total, 1) * 3)
+                    _emit(job_id, "progress", _json.dumps({
+                        "msg": f"Fetching SW EoX dates… {done}/{total}",
+                        "pct": pct,
+                        "completed": list(_api_complete),
+                    }))
+                enrich_sw_eox(token, sw_map, on_progress=sw_eox_reporter)
+
         chain_candidates = [
             p for p in pids
             if (eox_map.get(p.upper(), {}).get("EOXMigrationDetails", {}).get("MigrationProductId") or "").strip()
@@ -888,12 +1040,12 @@ def run_job(job_id: str, client_id: str, client_secret: str,
         chain_total = len(chain_candidates)
         _emit(job_id, "progress", _json.dumps({
             "msg": f"Resolving replacement chains… 0/{chain_total}" if chain_total else "Resolving replacement chains…",
-            "pct": 89,
+            "pct": 92,
             "completed": list(_api_complete),
         }))
 
         def chain_reporter(done: int, total: int):
-            pct = 89 + int(done / max(total, 1) * 3)
+            pct = 92 + int(done / max(total, 1) * 3)
             _emit(job_id, "progress", _json.dumps({
                 "msg": f"Resolving replacement chains… {done}/{total}",
                 "pct": pct,
@@ -903,8 +1055,15 @@ def run_job(job_id: str, client_id: str, client_secret: str,
         enrich_replacement_chains(token, pids, eox_map, on_progress=chain_reporter)
 
         _emit(job_id, "progress", _json.dumps({"msg": "Building Excel file…", "pct": 92}))
-        buf   = build_excel(pids, eox_map, info_map, sw_map or None, source_wb, col_spec)
+        buf   = build_excel(pids, eox_map, info_map, sw_map or None, source_wb, col_spec, mappings=hw_mappings)
         stats = compute_stats(pids, eox_map, info_map, sw_map or {})
+
+        # Persist the Excel file so it can be re-downloaded from history
+        dl_path = os.path.join(_DOWNLOADS_DIR, f"{job_id}.xlsx")
+        buf.seek(0)
+        with open(dl_path, "wb") as fh:
+            fh.write(buf.read())
+        buf.seek(0)
 
         with _job_lock:
             _jobs[job_id].update({"status": "done", "buf": buf, "download_name": download_name})
@@ -913,6 +1072,7 @@ def run_job(job_id: str, client_id: str, client_secret: str,
             "download_url": f"/api/download/{job_id}",
             "label": download_name,
             "stats": stats,
+            "job_id": job_id,
         }))
 
     except Exception as e:
@@ -976,6 +1136,18 @@ def start_job_route():
         except Exception:
             pass
 
+    # Load overrides for the active preset from the server-side file
+    hw_mappings = None
+    try:
+        raw_preset_id = (request.form.get("preset_id") or "").strip() or "default"
+        all_overrides = _read_json(_OVERRIDES_F, {})
+        preset_overrides = all_overrides.get(raw_preset_id, {})
+        if isinstance(preset_overrides, dict) and preset_overrides:
+            hw_mappings = {k.upper(): v for k, v in preset_overrides.items()
+                           if isinstance(k, str) and isinstance(v, str)}
+    except Exception:
+        pass
+
     job_id = uuid.uuid4().hex[:12]
     with _job_lock:
         _jobs[job_id]       = {"status": "running"}
@@ -984,6 +1156,7 @@ def start_job_route():
     t = threading.Thread(
         target=run_job,
         args=(job_id, client_id, client_secret, pids, source_wb, col_spec, download_name),
+        kwargs={"hw_mappings": hw_mappings},
         daemon=True,
     )
     t.start()
@@ -1153,6 +1326,21 @@ def save_presets():
     return jsonify({"ok": True})
 
 
+@app.route("/api/overrides", methods=["GET"])
+def get_overrides():
+    with _data_lock:
+        d = _read_json(_OVERRIDES_F, {})
+    return jsonify({"overrides": d})
+
+
+@app.route("/api/overrides", methods=["POST"])
+def save_overrides():
+    data = request.get_json(silent=True) or {}
+    with _data_lock:
+        _write_json(_OVERRIDES_F, data.get("overrides", {}))
+    return jsonify({"ok": True})
+
+
 @app.route("/api/history", methods=["GET"])
 def get_history():
     with _data_lock:
@@ -1163,8 +1351,17 @@ def get_history():
 @app.route("/api/history", methods=["POST"])
 def save_history():
     data = request.get_json(silent=True) or {}
+    new_history = data.get("history", [])
     with _data_lock:
-        _write_json(_HISTORY_F, {"history": data.get("history", [])})
+        old = _read_json(_HISTORY_F, {}).get("history", [])
+        old_ids = {e.get("file_id") for e in old if e.get("file_id")}
+        new_ids = {e.get("file_id") for e in new_history if e.get("file_id")}
+        for fid in old_ids - new_ids:
+            try:
+                os.remove(os.path.join(_DOWNLOADS_DIR, f"{fid}.xlsx"))
+            except OSError:
+                pass
+        _write_json(_HISTORY_F, {"history": new_history})
     return jsonify({"ok": True})
 
 
@@ -1172,7 +1369,33 @@ def save_history():
 def clear_history():
     with _data_lock:
         _write_json(_HISTORY_F, {"history": []})
+    for f in os.listdir(_DOWNLOADS_DIR):
+        try:
+            os.remove(os.path.join(_DOWNLOADS_DIR, f))
+        except OSError:
+            pass
     return jsonify({"ok": True})
+
+
+@app.route("/api/history/<entry_id>/download")
+def download_history_entry(entry_id: str):
+    with _data_lock:
+        history = _read_json(_HISTORY_F, {}).get("history", [])
+    entry = next((e for e in history if e.get("id") == entry_id), None)
+    if not entry:
+        return jsonify({"error": "Entry not found"}), 404
+    file_id = entry.get("file_id")
+    if not file_id:
+        return jsonify({"error": "No file associated with this entry"}), 404
+    dl_path = os.path.join(_DOWNLOADS_DIR, f"{file_id}.xlsx")
+    if not os.path.exists(dl_path):
+        return jsonify({"error": "File no longer available"}), 404
+    return send_file(
+        dl_path,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        as_attachment=True,
+        download_name=entry.get("label", f"{entry_id}.xlsx"),
+    )
 
 
 @app.route("/api/history/<entry_id>/repair", methods=["POST"])

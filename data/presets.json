@@ -29,11 +29,11 @@
           "label": "SW release date"
         },
         {
-          "col": "__blank__",
+          "col": "SW End of Vuln Support",
           "label": "eovss sw"
         },
         {
-          "col": "__blank__",
+          "col": "SW Last Date of Support",
           "label": "ldos sw"
         },
         {
@@ -53,7 +53,7 @@
           "label": "Version 1 1:1, puis faire Version 2 rationnalisé"
         },
         {
-          "col": "__blank__",
+          "col": "Manual Hardware Recommendation",
           "label": "New hardware Cisco Live"
         },
         {
