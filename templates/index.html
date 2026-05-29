@@ -1055,8 +1055,8 @@
 </div>
 
 <script>
-const _origin = (window.location.origin && window.location.origin !== 'null')
-  ? window.location.origin : 'http://localhost:5001';
+const _origin = ((window.location.origin && window.location.origin !== 'null')
+  ? window.location.origin : 'http://localhost:5001') + '{{ request.script_root }}';
 
 // ── Preset system ─────────────────────────────────────────────────────────────
 

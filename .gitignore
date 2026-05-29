@@ -11,3 +11,10 @@ wheels/
 
 # Environment variables
 .env
+
+# OS / editor / tooling
+.DS_Store
+.claude/
+
+# Generated job downloads
+data/downloads/
