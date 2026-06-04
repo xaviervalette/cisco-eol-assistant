@@ -612,7 +612,7 @@ def enrich_replacement_chains(token: str, pids: list[str], eox_map: dict, on_pro
 ALL_COLUMNS: list[tuple[str, any]] = [
     ("Product Name",          lambda p, e, i, s: _spaced(i.get("product_name") or "")                                  if i else ""),
     ("Product Description",   lambda p, e, i, s: (e.get("ProductIDDescription") or "")                                 if e else ""),
-    ("Product Type",          lambda p, e, i, s: (i.get("product_type") or "")                                         if i else ""),
+    ("Catégorie",             lambda p, e, i, s: (i.get("product_category") or "")                                     if i else ""),
     ("Product Series",        lambda p, e, i, s: _spaced(i.get("product_series") or "")                                if i else ""),
     ("Release Date",          lambda p, e, i, s: (i.get("release_date") or "")                                         if i else ""),
     ("EoX Status",            lambda p, e, i, s: _resolved_status(e, i)),
@@ -636,7 +636,7 @@ _ALL_COLUMNS_MAP  = {name: fn for name, fn in ALL_COLUMNS}
 ALL_COLUMN_NAMES  = [name for name, _ in ALL_COLUMNS]
 
 _COL_WIDTHS = {
-    "Product Name": 36, "Product Description": 52, "Product Type": 14, "Product Series": 28,
+    "Product Name": 36, "Product Description": 52, "Catégorie": 16, "Product Series": 28,
     "Release Date": 14, "EoX Status": 14, "End of Sale": 14,
     "End of SW Maintenance": 22, "Last Date of Support": 20,
     "Replacement PID": 22, "Bulletin URL": 50, "End of Vuln Support": 20,

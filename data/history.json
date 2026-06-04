@@ -482,7 +482,6 @@
         "cols": {
           "Product Name": 330,
           "Product Description": 238,
-          "Product Type": 330,
           "Product Series": 330,
           "Release Date": 330,
           "EoX Status": 345,
@@ -498,7 +497,8 @@
           "Lifecycle": 175,
           "SW Release Date": 204,
           "SW End of Vuln Support": 161,
-          "SW Last Date of Support": 161
+          "SW Last Date of Support": 161,
+          "Catégorie": 330
         }
       },
       "file_id": "03b30e653b41"
@@ -515,7 +515,6 @@
           "Lifecycle": 1,
           "Product Name": 1,
           "Product Series": 1,
-          "Product Type": 1,
           "Release Date": 1,
           "Replacement PID": 1,
           "SW End of Vuln Support": 1,
@@ -523,7 +522,8 @@
           "SW Release Date": 1,
           "SW Type": 1,
           "Suggested Release": 1,
-          "Train": 1
+          "Train": 1,
+          "Catégorie": 1
         },
         "eox": {
           "Active": 1
@@ -556,7 +556,6 @@
           "Product Description": 238,
           "Product Name": 330,
           "Product Series": 330,
-          "Product Type": 330,
           "Release Date": 330,
           "Replacement PID": 232,
           "SW End of Vuln Support": 160,
@@ -564,7 +563,8 @@
           "SW Release Date": 204,
           "SW Type": 204,
           "Suggested Release": 204,
-          "Train": 204
+          "Train": 204,
+          "Catégorie": 330
         },
         "eox": {
           "Active": 97,
@@ -1057,7 +1057,6 @@
           "Product Description": 19,
           "Product Name": 20,
           "Product Series": 20,
-          "Product Type": 20,
           "Release Date": 20,
           "Replacement PID": 19,
           "SW End of Vuln Support": 13,
@@ -1065,7 +1064,8 @@
           "SW Release Date": 14,
           "SW Type": 14,
           "Suggested Release": 14,
-          "Train": 14
+          "Train": 14,
+          "Catégorie": 20
         },
         "eox": {
           "Active": 1,
@@ -1139,7 +1139,6 @@
           "Product Description": 19,
           "Product Name": 20,
           "Product Series": 20,
-          "Product Type": 20,
           "Release Date": 20,
           "Replacement PID": 19,
           "SW End of Vuln Support": 3,
@@ -1147,7 +1146,8 @@
           "SW Release Date": 14,
           "SW Type": 14,
           "Suggested Release": 14,
-          "Train": 14
+          "Train": 14,
+          "Catégorie": 20
         },
         "eox": {
           "Active": 1,
@@ -1221,13 +1221,13 @@
           "Product Description": 19,
           "Product Name": 20,
           "Product Series": 20,
-          "Product Type": 20,
           "Release Date": 20,
           "Replacement PID": 19,
           "SW Release Date": 14,
           "SW Type": 14,
           "Suggested Release": 14,
-          "Train": 14
+          "Train": 14,
+          "Catégorie": 20
         },
         "eox": {
           "Active": 1,
@@ -1301,13 +1301,13 @@
           "Product Description": 19,
           "Product Name": 20,
           "Product Series": 20,
-          "Product Type": 20,
           "Release Date": 20,
           "Replacement PID": 19,
           "SW Release Date": 14,
           "SW Type": 14,
           "Suggested Release": 14,
-          "Train": 14
+          "Train": 14,
+          "Catégorie": 20
         },
         "eox": {
           "Active": 1,
@@ -1375,12 +1375,12 @@
           "Lifecycle": 1,
           "Product Name": 1,
           "Product Series": 1,
-          "Product Type": 1,
           "Release Date": 1,
           "SW Release Date": 1,
           "SW Type": 1,
           "Suggested Release": 1,
-          "Train": 1
+          "Train": 1,
+          "Catégorie": 1
         },
         "eox": {
           "Active": 1
@@ -1412,13 +1412,13 @@
           "Product Description": 19,
           "Product Name": 20,
           "Product Series": 20,
-          "Product Type": 20,
           "Release Date": 20,
           "Replacement PID": 19,
           "SW Release Date": 14,
           "SW Type": 14,
           "Suggested Release": 14,
-          "Train": 14
+          "Train": 14,
+          "Catégorie": 20
         },
         "eox": {
           "Active": 1,
@@ -1485,12 +1485,12 @@
           "Lifecycle": 1,
           "Product Name": 1,
           "Product Series": 1,
-          "Product Type": 1,
           "Release Date": 1,
           "SW Release Date": 1,
           "SW Type": 1,
           "Suggested Release": 1,
-          "Train": 1
+          "Train": 1,
+          "Catégorie": 1
         },
         "eox": {
           "Active": 1
@@ -1522,13 +1522,13 @@
           "Product Description": 332,
           "Product Name": 330,
           "Product Series": 330,
-          "Product Type": 330,
           "Release Date": 330,
           "Replacement PID": 232,
           "SW Release Date": 204,
           "SW Type": 204,
           "Suggested Release": 204,
-          "Train": 204
+          "Train": 204,
+          "Catégorie": 330
         },
         "eox": {
           "Active": 100,
@@ -2023,13 +2023,13 @@
           "Product Description": 238,
           "Product Name": 330,
           "Product Series": 330,
-          "Product Type": 330,
           "Release Date": 330,
           "Replacement PID": 232,
           "SW Release Date": 204,
           "SW Type": 204,
           "Suggested Release": 204,
-          "Train": 204
+          "Train": 204,
+          "Catégorie": 330
         },
         "eox": {
           "Active": 100,
@@ -2522,13 +2522,13 @@
           "Product Description": 238,
           "Product Name": 330,
           "Product Series": 330,
-          "Product Type": 330,
           "Release Date": 330,
           "Replacement PID": 232,
           "SW Release Date": 204,
           "SW Type": 204,
           "Suggested Release": 204,
-          "Train": 204
+          "Train": 204,
+          "Catégorie": 330
         },
         "eox": {
           "Active": 100,
@@ -3022,13 +3022,13 @@
           "Product Description": 238,
           "Product Name": 330,
           "Product Series": 330,
-          "Product Type": 330,
           "Release Date": 330,
           "Replacement PID": 232,
           "SW Release Date": 204,
           "SW Type": 204,
           "Suggested Release": 204,
-          "Train": 204
+          "Train": 204,
+          "Catégorie": 330
         },
         "eox": {
           "Active": 100,
@@ -3521,13 +3521,13 @@
           "Product Description": 238,
           "Product Name": 330,
           "Product Series": 330,
-          "Product Type": 330,
           "Release Date": 330,
           "Replacement PID": 232,
           "SW Release Date": 204,
           "SW Type": 204,
           "Suggested Release": 204,
-          "Train": 204
+          "Train": 204,
+          "Catégorie": 330
         },
         "eox": {
           "Active": 100,
@@ -4027,13 +4027,13 @@
           "Product Description": 238,
           "Product Name": 330,
           "Product Series": 330,
-          "Product Type": 330,
           "Release Date": 330,
           "Replacement PID": 232,
           "SW Release Date": 204,
           "SW Type": 204,
           "Suggested Release": 204,
-          "Train": 204
+          "Train": 204,
+          "Catégorie": 330
         },
         "eox": {
           "Active": 100,
@@ -4533,13 +4533,13 @@
           "Product Description": 235,
           "Product Name": 233,
           "Product Series": 233,
-          "Product Type": 233,
           "Release Date": 233,
           "Replacement PID": 229,
           "SW Release Date": 117,
           "SW Type": 117,
           "Suggested Release": 117,
-          "Train": 117
+          "Train": 117,
+          "Catégorie": 233
         },
         "eox": {
           "End of Life": 121,
@@ -4921,13 +4921,13 @@
           "Lifecycle": 175,
           "Product Name": 330,
           "Product Series": 330,
-          "Product Type": 330,
           "Release Date": 330,
           "Replacement PID": 232,
           "SW Release Date": 204,
           "SW Type": 204,
           "Suggested Release": 204,
-          "Train": 204
+          "Train": 204,
+          "Catégorie": 330
         },
         "eox": {
           "Active": 100,
@@ -5430,13 +5430,13 @@
           "Lifecycle": 175,
           "Product Name": 330,
           "Product Series": 330,
-          "Product Type": 330,
           "Release Date": 330,
           "Replacement PID": 232,
           "SW Release Date": 204,
           "SW Type": 204,
           "Suggested Release": 204,
-          "Train": 204
+          "Train": 204,
+          "Catégorie": 330
         },
         "eox": {
           "Active": 100,
@@ -5993,13 +5993,13 @@
           "Lifecycle": 175,
           "Product Name": 330,
           "Product Series": 330,
-          "Product Type": 330,
           "Release Date": 330,
           "Replacement PID": 232,
           "SW Release Date": 204,
           "SW Type": 204,
           "Suggested Release": 204,
-          "Train": 204
+          "Train": 204,
+          "Catégorie": 330
         },
         "eox": {
           "Active": 100,
@@ -6555,13 +6555,13 @@
           "Lifecycle": 175,
           "Product Name": 330,
           "Product Series": 330,
-          "Product Type": 330,
           "Release Date": 330,
           "Replacement PID": 232,
           "SW Release Date": 204,
           "SW Type": 204,
           "Suggested Release": 204,
-          "Train": 204
+          "Train": 204,
+          "Catégorie": 330
         },
         "eox": {
           "Active": 100,
@@ -7117,13 +7117,13 @@
           "Lifecycle": 173,
           "Product Name": 246,
           "Product Series": 246,
-          "Product Type": 246,
           "Release Date": 246,
           "Replacement PID": 232,
           "SW Release Date": 196,
           "SW Type": 196,
           "Suggested Release": 196,
-          "Train": 196
+          "Train": 196,
+          "Catégorie": 246
         },
         "eox": {
           "Active": 100,
@@ -7679,13 +7679,13 @@
           "Lifecycle": 174,
           "Product Name": 248,
           "Product Series": 248,
-          "Product Type": 248,
           "Release Date": 248,
           "Replacement PID": 232,
           "SW Release Date": 198,
           "SW Type": 198,
           "Suggested Release": 198,
-          "Train": 198
+          "Train": 198,
+          "Catégorie": 248
         },
         "eox": {
           "Active": 100,
@@ -8241,13 +8241,13 @@
           "Lifecycle": 168,
           "Product Name": 267,
           "Product Series": 267,
-          "Product Type": 267,
           "Release Date": 267,
           "Replacement PID": 232,
           "SW Release Date": 194,
           "SW Type": 194,
           "Suggested Release": 194,
-          "Train": 194
+          "Train": 194,
+          "Catégorie": 267
         },
         "eox": {
           "Active": 100,
