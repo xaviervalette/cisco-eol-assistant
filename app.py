@@ -414,6 +414,50 @@ def _to_eox_release_fmt(release: str, ostype: str) -> str:
     return release
 
 
+_SW_MONTHS = {m: n for n, m in enumerate(
+    ("JAN", "FEB", "MAR", "APR", "MAY", "JUN",
+     "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"), start=1)}
+
+
+def _parse_sw_release_date(value: str) -> "datetime.date | None":
+    """Parse the SW Suggestion releaseDate format ('19-Sep-2025')."""
+    try:
+        d, m, y = (value or "").strip().split("-")
+        return datetime.date(int(y), _SW_MONTHS[m.upper()[:3]], int(d))
+    except Exception:
+        return None
+
+
+def _iso_date(value: str) -> "datetime.date | None":
+    try:
+        return datetime.date.fromisoformat((value or "").strip())
+    except Exception:
+        return None
+
+
+def _sw_eox_applies(eovss: str, ldos: str, release_date: "datetime.date | None") -> bool:
+    """Reject EOXBySWReleaseString records that cannot describe this release.
+
+    EOXBySWReleaseString answers with the *orderable software licence SKUs* that
+    carry a train (SGRWILK9-15207E, SASR9031NPEK9-35SA…), across every platform
+    that ever shipped it — not with the support lifecycle of the exact maintenance
+    release we asked about.  When those SKUs were retired long before the release
+    shipped, their dates are meaningless here: 15.2(7)E13 shipped 19-Sep-2025 yet
+    the matching records claim EoVSS 2024-03-30, which is how a C1000-16T-2G-L
+    ended up advertising software support ending *before* its own hardware dates.
+    A release cannot lose support before it exists, so drop those records and
+    leave the SW columns empty rather than print a date that undercuts the
+    hardware lifecycle.
+    """
+    if not release_date:
+        return True
+    for value in (eovss, ldos):
+        d = _iso_date(value)
+        if d and d < release_date:
+            return False
+    return True
+
+
 def enrich_sw_eox(token: str, sw_map: dict, on_progress=None):
     """Enrich sw_map entries with EoVSS and LDoS from EOXBySWReleaseString.
 
@@ -426,6 +470,7 @@ def enrich_sw_eox(token: str, sw_map: dict, on_progress=None):
 
     # Group PIDs by (release, normalised_ostype) — query each pair only once
     pair_to_pids: dict[tuple[str, str], list[str]] = {}
+    pair_release_date: dict[tuple[str, str], "datetime.date | None"] = {}
     for pid, rec in sw_map.items():
         if not rec:
             continue
@@ -435,6 +480,8 @@ def enrich_sw_eox(token: str, sw_map: dict, on_progress=None):
         if not release:
             continue
         pair_to_pids.setdefault((release, ostype), []).append(pid)
+        pair_release_date.setdefault(
+            (release, ostype), _parse_sw_release_date(rec.get("releaseDate") or ""))
 
     pairs = list(pair_to_pids.keys())
     cache: dict[tuple[str, str], dict] = {}
@@ -453,9 +500,12 @@ def enrich_sw_eox(token: str, sw_map: dict, on_progress=None):
                     continue
                 eovss = rec.get("EndOfSecurityVulSupportDate", {}).get("value") or ""
                 ldos  = rec.get("LastDateOfSupport", {}).get("value") or ""
-                if eovss or ldos:
-                    cache[(release, ostype)] = {"_sw_eovss": eovss, "_sw_ldos": ldos}
-                    break
+                if not (eovss or ldos):
+                    continue
+                if not _sw_eox_applies(eovss, ldos, pair_release_date.get((release, ostype))):
+                    continue
+                cache[(release, ostype)] = {"_sw_eovss": eovss, "_sw_ldos": ldos}
+                break
         if on_progress:
             on_progress(idx + 1, len(pairs))
 
@@ -516,6 +566,165 @@ def _resolved_status(eox_rec: dict, info_rec: dict) -> str:
     if status in ("Invalid SKU", "No Record") and has_info:
         return "Active"
     return status
+
+
+# ── PID normalisation fallback ────────────────────────────────────────────────
+
+# Suffixes Cisco appends to a base PID without changing the hardware itself:
+# licence level (-A/-E/-M), region (-EU/-NA/…), packaging (-RF/-WS).  The EoX and
+# Product Info APIs only know the base PID, so an inventory full of real, orderable
+# SKUs like C9300-48P-M or SG250X-48P-K9-EU comes back as "Invalid SKU".
+_PID_TRIM_SUFFIXES = {
+    "A", "E", "M", "K9", "RF", "WS",
+    "EU", "NA", "UK", "CN", "IN", "JP", "AU", "BR", "AR", "KR", "G5",
+}
+
+# Suffixes the APIs *require* but inventories often drop (WS-C3750-48TS is stored
+# as such although only WS-C3750-48TS-S / -E exist).  Ordered by likelihood.
+_PID_APPEND_SUFFIXES = ("S", "E", "L", "A", "M", "K9")
+
+
+def _eox_wildcard(token: str, prefix: str) -> dict[str, dict]:
+    """Query EOXByProductID with a trailing wildcard: dict[EOLProductID, record]."""
+    headers = {"Authorization": f"Bearer {token}"}
+    r = _get_with_retry(f"{EOX_BASE}/EOXByProductID/1/{requests.utils.quote(prefix + '*')}",
+                        headers, params={"responseencoding": "json"})
+    out: dict[str, dict] = {}
+    if r and r.ok:
+        try:
+            for rec in r.json().get("EOXRecord", []):
+                key = (rec.get("EOLProductID") or "").strip().upper()
+                if key and key not in out:
+                    out[key] = rec
+        except Exception:
+            pass
+    return out
+
+
+def _eox_by_wildcard_exact(token: str, pid: str, max_trims: int = 2) -> dict:
+    """Find `pid`'s own EoX record through a wildcard query, or {}.
+
+    The exact-match path of EOXByProductID rejects PIDs the same API returns in
+    full under a wildcard: SG250X-48P-K9-EU answers SSA_ERR_021_Pid directly, yet
+    "SG250X-48P*" lists it with its real dates.  Progressively shorter prefixes
+    are tried because the wildcard has to start *before* the part the exact
+    lookup chokes on.
+
+    Only a record whose EOLProductID equals `pid` is accepted.  Near-matches are
+    deliberately refused — "C9500-24Y4C-E*" also returns the promo bundle
+    C9500-24Y4C-EP-3, whose End-of-Life dates have nothing to do with the switch.
+    """
+    prefix = (pid or "").strip().upper()
+    for _ in range(max_trims + 1):
+        if not prefix:
+            break
+        found = _eox_wildcard(token, prefix)
+        if pid in found:
+            return found[pid]
+        head, sep, _tail = prefix.rpartition("-")
+        if not sep or not head:
+            break
+        prefix = head
+    return {}
+
+
+def _pid_variants(pid: str, max_trims: int = 2) -> list[str]:
+    """Ordered candidate PIDs to try when the APIs don't know `pid`.
+
+    Trims come first (same hardware, different licence/region) and only then
+    appends (a truncated PID completed with its licence suffix).
+    """
+    pid = (pid or "").strip().upper()
+    if not pid:
+        return []
+    out: list[str] = []
+    seen = {pid}
+
+    cur = pid
+    for _ in range(max_trims):
+        head, sep, tail = cur.rpartition("-")
+        if not sep or not head or tail not in _PID_TRIM_SUFFIXES:
+            break
+        cur = head
+        if cur not in seen:
+            seen.add(cur)
+            out.append(cur)
+
+    for suf in _PID_APPEND_SUFFIXES:
+        cand = f"{pid}-{suf}"
+        if cand not in seen:
+            seen.add(cand)
+            out.append(cand)
+
+    return out
+
+
+def resolve_pid_aliases(token: str, pids: list[str], eox_map: dict, info_map: dict,
+                        on_progress=None) -> dict[str, str]:
+    """Second-chance lookup for PIDs both APIs rejected.
+
+    Queries _pid_variants() for every unresolved PID and, on the first candidate
+    the APIs do know, copies its records under the queried PID with an `_alias_of`
+    marker (surfaced in the "PID résolu" column, so nothing is substituted
+    silently).  Records are *copied*, never shared: enrich_replacement_chains
+    writes _final_replacement into eox_map[queried_pid] and would otherwise
+    corrupt the alias target's record when both are in the same batch.
+
+    Returns dict[queried_pid_upper, resolved_pid].
+    """
+    unknown = [
+        p for p in pids
+        if _resolved_status(eox_map.get(p.upper()), info_map.get(p.upper(), {}))
+        in ("Invalid SKU", "No Record")
+    ]
+    if not unknown:
+        return {}
+
+    cand_map = {p.upper(): _pid_variants(p) for p in unknown}
+
+    to_query: list[str] = []
+    seen: set[str] = set()
+    for cands in cand_map.values():
+        for c in cands:
+            if c not in seen and c not in eox_map and c not in info_map:
+                seen.add(c)
+                to_query.append(c)
+
+    cand_eox:  dict = fetch_eox(token, to_query)          if to_query else {}
+    cand_info: dict = fetch_product_info(token, to_query) if to_query else {}
+
+    aliases: dict[str, str] = {}
+    for idx, p in enumerate(unknown):
+        u = p.upper()
+
+        # 1. Wildcard lookup — recovers the PID's own record whenever only the
+        #    exact-match endpoint failed.  No alias: this really is the PID.
+        if (rec := _eox_by_wildcard_exact(token, u)):
+            eox_map[u] = dict(rec)
+            if on_progress:
+                on_progress(idx + 1, len(unknown))
+            continue
+
+        # 2. Licence/region trimming and suffix completion.
+        for c in cand_map[u]:
+            e = cand_eox.get(c)  or eox_map.get(c)
+            i = cand_info.get(c) or info_map.get(c, {})
+            if _resolved_status(e, i) in ("Invalid SKU", "No Record"):
+                continue
+            if e:
+                rec = dict(e)
+                rec["_alias_of"] = c
+                eox_map[u] = rec
+            if i:
+                rec = dict(i)
+                rec["_alias_of"] = c
+                info_map[u] = rec
+            aliases[u] = c
+            break
+        if on_progress:
+            on_progress(idx + 1, len(unknown))
+
+    return aliases
 
 
 # ── Replacement chain resolution ──────────────────────────────────────────────
@@ -616,6 +825,7 @@ ALL_COLUMNS: list[tuple[str, any]] = [
     ("Product Series",        lambda p, e, i, s: _spaced(i.get("product_series") or "")                                if i else ""),
     ("Release Date",          lambda p, e, i, s: (i.get("release_date") or "")                                         if i else ""),
     ("EoX Status",            lambda p, e, i, s: _resolved_status(e, i)),
+    ("PID résolu",            lambda p, e, i, s: (e.get("_alias_of") if e else "") or (i.get("_alias_of") if i else "") or ""),
     ("End of Sale",           lambda p, e, i, s: _date_val(e, "EndOfSaleDate")                                         if e else ""),
     ("End of SW Maintenance", lambda p, e, i, s: _date_val(e, "EndOfSWMaintenanceReleases")                            if e else ""),
     ("Last Date of Support",  lambda p, e, i, s: "N/A" if _resolved_status(e, i) == "Active" else (_date_val(e, "LastDateOfSupport")                                                                                                                    if e else "")),
@@ -637,7 +847,7 @@ ALL_COLUMN_NAMES  = [name for name, _ in ALL_COLUMNS]
 
 _COL_WIDTHS = {
     "Product Name": 36, "Product Description": 52, "Catégorie": 16, "Product Series": 28,
-    "Release Date": 14, "EoX Status": 14, "End of Sale": 14,
+    "Release Date": 14, "EoX Status": 14, "PID résolu": 20, "End of Sale": 14,
     "End of SW Maintenance": 22, "Last Date of Support": 20,
     "Replacement PID": 22, "Bulletin URL": 50, "End of Vuln Support": 20,
     "SW Type": 20, "Suggested Release": 18, "Train": 22,
@@ -647,7 +857,7 @@ _COL_WIDTHS = {
 }
 
 _CENTER_COLS = {
-    "EoX Status", "Release Date", "End of Sale",
+    "EoX Status", "PID résolu", "Release Date", "End of Sale",
     "End of SW Maintenance", "Last Date of Support", "End of Vuln Support", "SW Release Date",
 }
 
@@ -982,6 +1192,44 @@ def run_job(job_id: str, client_id: str, client_secret: str,
                         "completed": list(_api_complete),
                     }))
 
+        # ── PID normalisation fallback ────────────────────────────────────
+        # Licence/region variants (C9300-48P-M, SG250X-48P-K9-EU) and truncated
+        # PIDs (WS-C3750-48TS) are unknown to both APIs; retry them on their base
+        # PID before anything downstream treats them as invalid.
+        _alias_candidates = sum(
+            1 for p in pids
+            if _resolved_status(eox_map.get(p.upper()), info_map.get(p.upper(), {}))
+            in ("Invalid SKU", "No Record")
+        )
+        aliases: dict = {}
+        if _alias_candidates:
+            def alias_reporter(done: int, total: int):
+                _emit(job_id, "progress", _json.dumps({
+                    "msg": f"Résolution des PID inconnus… {done}/{total}",
+                    "pct": 85,
+                    "completed": list(_api_complete),
+                }))
+            _emit(job_id, "progress", _json.dumps({
+                "msg": f"Résolution des PID inconnus ({_alias_candidates})…",
+                "pct": 85,
+                "completed": list(_api_complete),
+            }))
+            aliases = resolve_pid_aliases(token, pids, eox_map, info_map,
+                                          on_progress=alias_reporter)
+            if aliases:
+                _emit(job_id, "progress", _json.dumps({
+                    "msg": f"PID résolus : +{len(aliases)}",
+                    "pct": 86,
+                    "completed": list(_api_complete),
+                }))
+
+        # Pull the SW suggestion of the resolved PID for every alias.
+        if aliases and sw_map is not None:
+            _alias_sw = fetch_sw_suggestions(token, sorted(set(aliases.values()))) or {}
+            for _orig, _target in aliases.items():
+                if _orig not in sw_map and _alias_sw.get(_target):
+                    sw_map[_orig] = dict(_alias_sw[_target])
+
         if sw_map is not None:
             _suffix_candidates = sum(
                 1 for p in pids
@@ -1254,6 +1502,21 @@ def inspect_sku_route():
     if sw_data is not None:
         _sw_suffix_fallback(token, [sku], info_data, sw_map)
     s = sw_map.get(sku, {})
+
+    alias = resolve_pid_aliases(token, [sku], eox_data, info_data)
+    if alias:
+        e = eox_data.get(sku, {})
+        i = info_data.get(sku, {})
+        target = alias[sku]
+        if not s:
+            alias_sw = fetch_sw_suggestions(token, [target]) or {}
+            if alias_sw.get(target):
+                s = dict(alias_sw[target])
+                sw_map[sku] = s
+
+    if sw_map.get(sku):
+        enrich_sw_eox(token, {sku: sw_map[sku]})
+        s = sw_map[sku]
 
     enrich_replacement_chains(token, [sku], eox_data)
     e = eox_data.get(sku, {})
