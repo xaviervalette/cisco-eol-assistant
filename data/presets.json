@@ -1,8 +1,6 @@
 {
   "presets": [
     {
-      "id": "default",
-      "name": "SAFRAN",
       "cols": [
         {
           "col": "Product Description",
@@ -60,8 +58,132 @@
           "col": "EoX Status",
           "label": "EoX Status"
         }
+      ],
+      "id": "default",
+      "name": "SAFRAN"
+    },
+    {
+      "cols": [
+        {
+          "col": "Product Name",
+          "label": "Product Name"
+        },
+        {
+          "col": "Catégorie",
+          "label": "Catégorie"
+        }
+      ],
+      "id": "mskoe05l",
+      "name": "RTE"
+    },
+    {
+      "cols": [
+        {
+          "col": "Product Name",
+          "label": "Product Name"
+        },
+        {
+          "col": "EoX Status",
+          "label": "EoX Status"
+        },
+        {
+          "col": "End of Vuln Support",
+          "label": "End of Vuln Support"
+        },
+        {
+          "col": "Last Date of Support",
+          "label": "Last Date of Support"
+        }
+      ],
+      "id": "wz4pgqwl",
+      "name": "DANONE"
+    },
+    {
+      "id": "5yqg4f68",
+      "name": "EDF UK",
+      "cols": [
+        {
+          "col": "Product Name",
+          "label": "Product Name"
+        },
+        {
+          "col": "Product Description",
+          "label": "Product Description"
+        },
+        {
+          "col": "Catégorie",
+          "label": "Catégorie"
+        },
+        {
+          "col": "Product Series",
+          "label": "Product Series"
+        },
+        {
+          "col": "Release Date",
+          "label": "Release Date"
+        },
+        {
+          "col": "EoX Status",
+          "label": "EoX Status"
+        },
+        {
+          "col": "End of Sale",
+          "label": "End of Sale"
+        },
+        {
+          "col": "End of SW Maintenance",
+          "label": "End of SW Maintenance"
+        },
+        {
+          "col": "Last Date of Support",
+          "label": "Last Date of Support"
+        },
+        {
+          "col": "End of Vuln Support",
+          "label": "End of Vuln Support"
+        },
+        {
+          "col": "Replacement PID",
+          "label": "Replacement PID"
+        },
+        {
+          "col": "Bulletin URL",
+          "label": "Bulletin URL"
+        },
+        {
+          "col": "SW Type",
+          "label": "SW Type"
+        },
+        {
+          "col": "Suggested Release",
+          "label": "Suggested Release"
+        },
+        {
+          "col": "Train",
+          "label": "Train"
+        },
+        {
+          "col": "Lifecycle",
+          "label": "Lifecycle"
+        },
+        {
+          "col": "SW Release Date",
+          "label": "SW Release Date"
+        },
+        {
+          "col": "SW End of Vuln Support",
+          "label": "SW End of Vuln Support"
+        },
+        {
+          "col": "SW Last Date of Support",
+          "label": "SW Last Date of Support"
+        },
+        {
+          "col": "Manual Hardware Recommendation",
+          "label": "Manual Hardware Recommendation"
+        }
       ]
     }
   ],
-  "active": "default"
+  "active": "5yqg4f68"
 }
