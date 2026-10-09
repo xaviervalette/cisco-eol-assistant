@@ -1,0 +1,15 @@
+[Unit]
+Description=Cisco EoL Assistant (EoX lookup, Flask)
+After=network.target
+
+[Service]
+Type=simple
+User=xvalette
+WorkingDirectory=/home/xvalette/cisco-eol-assistant
+ExecStart=/home/xvalette/cisco-eol-assistant/.venv/bin/python3 app.py
+Restart=on-failure
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target
