@@ -18,3 +18,9 @@ wheels/
 
 # Generated job downloads
 data/downloads/
+
+# Runtime logs
+*.log
+
+# Local reports
+*.pdf
